@@ -1,16 +1,9 @@
 # Lumen
 
 A modern, dark, single-page web UI for the [Calibre Content Server](https://manual.calibre-ebook.com/server.html).
-Lumen talks to your existing Calibre library through its built-in API - nothing is
+Lumen talks to your existing Calibre library through its built-in API — nothing is
 imported, converted, or duplicated, and the desktop GUI, OPDS feeds, and your
 e-reader keep working against the same database.
-
-<img width="1690" height="798" alt="lumen1" src="https://github.com/user-attachments/assets/a9a49fcb-88b4-4d4c-bb04-62051f20d66a" />
-
-
-| Details | Metadata |
-|------|------|
-| <img width="1683" height="784" alt="lumen2" src="https://github.com/user-attachments/assets/0bfc8d81-5b18-4ec8-ba9d-b974d83f44f0" /> |<img width="1691" height="791" alt="lumen3" src="https://github.com/user-attachments/assets/ed73add5-ebef-4860-ad0f-b1fe618fa512" />|
 
 Two files, zero dependencies (Python 3.8+ standard library only):
 
@@ -26,7 +19,7 @@ Two files, zero dependencies (Python 3.8+ standard library only):
   custom columns
 - Live search with full Calibre query syntax (`author:clausen`, `tag:scifi`)
 - Filter sidebar like Calibre's tag browser: Authors, Series, Tags, Publisher,
-  Languages, Rating, custom columns - with item counts, stacking filters, and a
+  Languages, Rating, custom columns — with item counts, stacking filters, and a
   pinned Status selector (Read / In progress / Not started)
 - Book drawer with downloads per format and one-tap read / in-progress toggles
 - Metadata editing in a centered dialog with the full Calibre field set:
@@ -36,6 +29,10 @@ Two files, zero dependencies (Python 3.8+ standard library only):
   search by title/author/ISBN, inspect each candidate's full metadata, then
   apply it for review before saving
 - Counts and filtered views refresh live after every change
+- Click-to-rate stars in the book panel
+- Optional AI assistant per book: similar titles, summary, and questions
+  (OpenAI / Anthropic / xAI, bring your own key) — optionally grounded in the
+  actual book by sending its EPUB/TXT text to the model
 
 ## Quick start
 
@@ -47,9 +44,10 @@ Two files, zero dependencies (Python 3.8+ standard library only):
 
 3. Open `http://<host>:8090`.
 
-Options: `--port`, `--bind`, `--user`/`--password` (digest and basic auth
-supported), `--google-key` (optional Google Books API key, avoids 429
-rate-limiting on metadata search).
+Options: `--port`, `--bind`, `--env-file`, `--user`/`--password` (digest and
+basic auth supported). Secrets — AI keys, the Google Books key, calibre
+credentials — belong in a `.env` file (copy `.env.example`), not on the
+command line, where they would be visible in `ps` output and shell history.
 
 ## Enabling writes (editing, status toggles)
 
@@ -61,7 +59,7 @@ The content server is read-only for anonymous users. Either:
   *Preferences → Sharing over the net → Advanced → "Allow un-authenticated
   connections from specific IP addresses to make changes"*.
 
-This option is read **once at server start** - restart the content server
+This option is read **once at server start** — restart the content server
 after changing it. If Calibre runs in Docker, requests from the host arrive
 from the Docker network gateway; `172.16.0.0/12` covers the default subnets,
 or find the exact gateway with:
@@ -78,6 +76,42 @@ Verify from the machine running `server.py` (any response other than a 403
 Trust model: anyone who can reach Lumen can edit the library through it,
 while direct connections to the content-server port (e.g. OPDS readers)
 stay read-only. Run it on a trusted network.
+
+## AI assistant (optional)
+
+The book details panel has an AI button offering three book-scoped actions:
+similar-book recommendations, a spoiler-light summary, and free-form questions
+about the book. Supported providers: OpenAI, Anthropic, and xAI — bring your
+own API key.
+
+By default the model only sees the book's metadata. Ticking **"Send the book
+text"** makes the server extract the text from the book's EPUB (or TXT) and
+include it in the prompt, so summaries and plot questions are answered from
+the actual book. The text is capped at 250,000 characters by default
+(`LUMEN_AI_BOOK_CHARS` in `.env` to change it); longer books are truncated
+from the start and the model is told the ending is missing. Mind the cost:
+a full-text question is cheap on small models (~$0.01 on gpt-4o-mini) but
+can reach tens of cents on premium ones. Books with neither EPUB nor TXT
+can't use this option (convert in Calibre first).
+
+Configure it server-side (recommended; one key for every device) via a
+`.env` file next to `server.py` — copy `.env.example` to `.env` and fill in:
+
+    LUMEN_AI_PROVIDER=anthropic
+    LUMEN_AI_KEY=sk-ant-...
+
+`.env` is gitignored; never commit real keys. Precedence is CLI flags >
+environment variables > `.env`, so systemd `EnvironmentFile=` works too.
+`LUMEN_AI_MODEL` overrides the per-provider default (gpt-4o-mini /
+claude-sonnet-4-6 / grok-4). Alternatively, each browser can set its own
+provider + key under "AI settings" in the dialog; that key is stored in that
+browser's localStorage only and takes precedence over the server key.
+
+Privacy note: the selected book's metadata (title, authors, tags, publisher
+description), your question, and — only when the checkbox is ticked — the
+book's extracted text are sent to the chosen AI provider. Nothing
+else from the library leaves the server, and nothing is sent until an action
+is clicked.
 
 ## Reading status columns
 
@@ -105,7 +139,7 @@ Then `systemctl enable --now lumen`.
 
 ## Limitations
 
-- No book upload or deletion (by design - use the Calibre GUI)
+- No book upload or deletion (by design — use the Calibre GUI)
 - Metadata sources are Google Books and Open Library, not the desktop's
   full plugin set; Open Library results have no descriptions
 - Metadata search needs outbound internet from the host running `server.py`
