@@ -328,7 +328,21 @@
 
   footer { border-top: 1px solid var(--line); color: var(--muted); font-family: var(--font-mono); font-size: 11.5px; padding: 16px 24px; text-align: center; }
 
+  #fscrim {
+    position: fixed; inset: 0; z-index: 31; background: rgba(8,9,13,.55);
+    opacity: 0; pointer-events: none; transition: opacity .2s; display: none;
+  }
+  .facets-head { display: none; }
   @media (max-width: 860px) {
+    #fscrim { display: block; }
+    #fscrim.open { opacity: 1; pointer-events: auto; }
+    .facets-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 2px 2px 10px; border-bottom: 1px solid var(--line); margin-bottom: 4px;
+      font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text);
+    }
+    .facets-head .closebtn { position: static; }
     .wrap { grid-template-columns: 1fr; }
     aside.facets {
       position: fixed; inset: 0 25% 0 0; z-index: 32; top: 0;
@@ -365,6 +379,7 @@
 </header>
 
 <div class="wrap">
+  <div id="fscrim"></div>
   <aside class="facets" id="facets" aria-label="Filters"></aside>
   <main>
     <div id="active"></div>
@@ -642,6 +657,11 @@
       facets.innerHTML = `<div class="facet" style="color:var(--muted);font-size:12.5px;padding:10px 2px">Filters unavailable: ${escapeHtml(e.message)}</div>`;
       return;
     }
+    const fh = document.createElement("div");
+    fh.className = "facets-head";
+    fh.innerHTML = `Filters <button class="closebtn" title="Close">✕</button>`;
+    fh.querySelector("button").addEventListener("click", () => setFacetsOpen(false));
+    facets.appendChild(fh);
     facets.appendChild(statusFacet());
     const sections = [];
     for (const c of cats) {
@@ -771,7 +791,13 @@
       box.appendChild(c);
     }
   }
-  $("#filters-toggle").addEventListener("click", () => $("#facets").classList.toggle("open"));
+  function setFacetsOpen(open) {
+    $("#facets").classList.toggle("open", open);
+    $("#fscrim").classList.toggle("open", open);
+  }
+  $("#filters-toggle").addEventListener("click",
+    () => setFacetsOpen(!$("#facets").classList.contains("open")));
+  $("#fscrim").addEventListener("click", () => setFacetsOpen(false));
 
   /* ================= drawer (view) ================= */
 
@@ -1172,7 +1198,7 @@
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
       if ($("#modal").classList.contains("open")) closeModal();
-      else { closeDrawer(); $("#facets").classList.remove("open"); }
+      else { closeDrawer(); setFacetsOpen(false); }
     }
     if (e.key === "/" && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
       e.preventDefault(); $("#q").focus();
