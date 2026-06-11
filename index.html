@@ -160,13 +160,16 @@
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
   .meta .a { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .readmark {
+  .readmark, .progressmark {
     position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
     display: flex; align-items: center; justify-content: center;
     background: rgba(20,22,29,.85); color: var(--ok);
     border: 1px solid rgba(143,199,143,.5); border-radius: 50%;
     font-size: 12px; backdrop-filter: blur(4px);
   }
+  .progressmark { color: var(--lamp); border-color: rgba(232,168,73,.5); }
+  .progressmark svg, #d-progress svg { display: block; }
+  #d-progress svg { display: inline-block; vertical-align: -1px; margin-right: 2px; }
   .badge {
     position: absolute; top: 8px; left: 8px;
     font-family: var(--font-mono); font-size: 10.5px;
@@ -546,7 +549,8 @@
     const authors = (m.authors || []).join(", ");
     const series = m.series
       ? `<span class="badge">${escapeHtml(m.series)}${m.series_index ? " #" + (+m.series_index) : ""}</span>` : "";
-    const read = readFlag(m) ? `<span class="readmark" title="Read">✓</span>` : "";
+    const read = readFlag(m) ? `<span class="readmark" title="Read">✓</span>`
+      : startedFlag(m) ? `<span class="progressmark" title="In progress"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5v6h4.5"/></svg></span>` : "";
     btn.innerHTML = `
       <div class="cover">${series}${read}<img loading="lazy" src="${coverUrl(id)}" alt=""></div>
       <div class="meta">
@@ -676,13 +680,11 @@
       const b = document.createElement("button");
       b.dataset.key = it.pair;
       b.innerHTML = `<span class="name">${escapeHtml(it.name)}</span><span class="count"></span>`;
+      b.dataset.q = it.q;
       b.addEventListener("click", () => toggleStatus(it));
       li.appendChild(b); ul.appendChild(li);
-      // live count for each status
-      api(`/ajax/search?library_id=${enc(state.lib)}&num=1&offset=0&query=${enc(it.q)}`)
-        .then(d => { b.querySelector(".count").textContent = d.total_num; })
-        .catch(() => {});
     }
+    refreshStatusCounts();
     sec.querySelector(".head").addEventListener("click", () => {
       sec.classList.toggle("open");
       syncFacetHighlights();
@@ -799,7 +801,7 @@
     rb.style.color = isRead ? "var(--ok)" : "";
     const started = startedFlag(m);
     const pb = $("#d-progress");
-    pb.textContent = started ? "◐ In progress" : "Mark in progress";
+    pb.innerHTML = started ? `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5v6h4.5"/></svg> In progress` : "Mark in progress";
     pb.style.color = started ? "var(--lamp)" : "";
     $("#d-cover").src = bigCover(id);
     $("#d-title").textContent = m.title || "Untitled";
@@ -885,12 +887,25 @@
   $("#d-progress").addEventListener("click", () =>
     toggleBoolCol(STARTED_COL, startedFlag, "Marked in progress", "No longer in progress"));
 
+  function refreshStatusCounts() {
+    document.querySelectorAll('.facet li button[data-q]').forEach(b => {
+      api(`/ajax/search?library_id=${enc(state.lib)}&num=1&offset=0&query=${enc(b.dataset.q)}`)
+        .then(d => { b.querySelector(".count").textContent = d.total_num; })
+        .catch(() => {});
+    });
+  }
+
   function applyUpdate(id, updated) {
     if (!updated) return;
     state.books.set(String(id), updated);
     const old = grid.querySelector(`.book[data-id="${id}"]`);
     if (old) old.replaceWith(card(id, updated));
     if (state.current === String(id)) showView(updated);
+    // a write can change what matches: refresh status counts always, and
+    // re-run the query when any filter or search is active so the book
+    // enters/leaves the grid accordingly
+    refreshStatusCounts();
+    if (state.filters.length || state.query.trim()) reset();
   }
 
   /* ================= edit modal ================= */
