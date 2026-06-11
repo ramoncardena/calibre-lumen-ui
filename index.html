@@ -620,8 +620,8 @@
   const escq = s => String(s).replace(/"/g, '\\"');
   const customFilter = key => n => {
     const ln = String(n).trim().toLowerCase();               // yes/no columns
-    if (ln === "yes" || ln === "true") return `${key}:true`;
-    if (ln === "no" || ln === "false") return `${key}:false`;
+    if (ln === "yes" || ln === "true") return `${key}:yes`;
+    if (ln === "no" || ln === "false") return `${key}:no`;
     return `${key}:"=${escq(n)}"`;                           // #genre etc.
   };
 
@@ -635,14 +635,59 @@
       facets.innerHTML = `<div class="facet" style="color:var(--muted);font-size:12.5px;padding:10px 2px">Filters unavailable: ${escapeHtml(e.message)}</div>`;
       return;
     }
+    facets.appendChild(statusFacet());
+    const sections = [];
     for (const c of cats) {
       if (!c.is_category) continue;
       const m = (c.url || "").match(/\/ajax\/category\/([0-9a-fA-F]+)/);
       if (!m) continue;
       const key = hexDecode(m[1]);
+      if (key === READ_COL || key === STARTED_COL) continue;   // covered by Status
       if (!(key in FILTERABLE) && !key.startsWith("#")) continue;
-      facets.appendChild(facetSection(key, c.name));
+      const sec = facetSection(key, c.name);
+      facets.appendChild(sec);
+      sections.push([key, sec]);
     }
+    // prefetch totals so counts show without unfolding
+    for (const [key, sec] of sections) {
+      api(`/ajax/category/${hexEncode(key)}/${enc(state.lib)}?num=1&offset=0`)
+        .then(d => { sec.querySelector(".n").textContent = d.total_num; })
+        .catch(() => {});
+    }
+  }
+
+  function statusFacet() {
+    // One exclusive status selector. yes/no keywords match the actual value
+    // on tristate columns ("true" would mean "field is set" — wrong here).
+    // "Not started" = neither read nor in progress, including never-marked.
+    const items = [
+      { pair: "_status", name: "Read",        q: `${READ_COL}:yes` },
+      { pair: "_status", name: "In progress", q: `${STARTED_COL}:yes` },
+      { pair: "_status", name: "Not started", q: `(not ${READ_COL}:yes and not ${STARTED_COL}:yes)` },
+    ];
+    const sec = document.createElement("div");
+    sec.className = "facet open"; sec.dataset.key = "_status";
+    sec.innerHTML = `
+      <button class="head"><span class="tri">▶</span> Status <span class="n"></span></button>
+      <ul></ul>`;
+    const ul = sec.querySelector("ul");
+    for (const it of items) {
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.dataset.key = it.pair;
+      b.innerHTML = `<span class="name">${escapeHtml(it.name)}</span><span class="count"></span>`;
+      b.addEventListener("click", () => toggleStatus(it));
+      li.appendChild(b); ul.appendChild(li);
+      // live count for each status
+      api(`/ajax/search?library_id=${enc(state.lib)}&num=1&offset=0&query=${enc(it.q)}`)
+        .then(d => { b.querySelector(".count").textContent = d.total_num; })
+        .catch(() => {});
+    }
+    sec.querySelector(".head").addEventListener("click", () => {
+      sec.classList.toggle("open");
+      syncFacetHighlights();
+    });
+    return sec;
   }
 
   function facetSection(key, displayName) {
@@ -683,19 +728,28 @@
     return sec;
   }
 
-  function toggleFilter(key, name) {
+  function toggleStatus(it) {
+    const i = state.filters.findIndex(f => f.key === it.pair);
+    const wasActive = i >= 0 && state.filters[i].name === it.name;
+    if (i >= 0) state.filters.splice(i, 1);
+    if (!wasActive) state.filters.push({ key: it.pair, name: it.name, q: it.q });
+    syncFacetHighlights();
+    reset();
+  }
+
+  function toggleFilter(key, name, q) {
     const i = state.filters.findIndex(f => f.key === key && f.name === name);
     if (i >= 0) state.filters.splice(i, 1);
     else {
       const mk = FILTERABLE[key] || customFilter(key);
-      state.filters.push({ key, name, q: mk(name) });
+      state.filters.push({ key, name, q: q || mk(name) });
     }
     syncFacetHighlights();
     reset();
   }
   function syncFacetHighlights() {
     document.querySelectorAll(".facet li button").forEach(b => {
-      const key = b.closest(".facet").dataset.key;
+      const key = b.dataset.key || b.closest(".facet").dataset.key;
       const name = b.querySelector(".name").textContent;
       b.classList.toggle("active", state.filters.some(f => f.key === key && f.name === name));
     });
