@@ -134,7 +134,11 @@
   #active .fchip:hover { border-color: var(--lamp); }
 
   /* ---------- grid ---------- */
-  #grid { display: grid; gap: 26px 20px; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); }
+  #grid {
+    display: grid; gap: 26px 20px;
+    grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+    align-items: start;  /* buttons center their content when stretched, skewing rows with 2-line titles */
+  }
   .book { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; display: block; width: 100%; }
   .cover {
     position: relative; aspect-ratio: 5 / 7.6; border-radius: 6px; overflow: hidden;
@@ -217,6 +221,7 @@
   .chip { font-family: var(--font-mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 3px 9px; }
   .chip.series { color: var(--lamp); border-color: rgba(232,168,73,.4); }
   .stars { color: var(--lamp); letter-spacing: 2px; font-size: 14px; }
+  #d-rating { font-size: 20px; margin: -4px 0 12px; }
   .dl { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
   .dl a {
     text-decoration: none; font-family: var(--font-mono); font-size: 12.5px; font-weight: 500;
@@ -405,6 +410,7 @@
   <img id="d-cover" alt="">
   <h2 id="d-title"></h2>
   <p id="d-authors"></p>
+  <div class="starpick" id="d-rating" title="Click to rate, click the current star to clear"></div>
   <div class="chips" id="d-chips"></div>
   <div class="dl" id="d-formats"></div>
   <div class="actions">
@@ -801,12 +807,8 @@
 
   /* ================= drawer (view) ================= */
 
-  function stars(r) {
-    if (!r) return "";
-    let n = +r; if (n > 5) n = n / 2;
-    n = Math.round(n);
-    return "★".repeat(n) + "☆".repeat(5 - n);
-  }
+  // calibre stores ratings 0-10 (half-stars); both API shapes return it raw
+  const ratingStars = m => Math.max(0, Math.min(5, Math.round((+m.rating || 0) / 2)));
   const idsToString = ids => Object.entries(ids || {}).map(([k, v]) => `${k}:${v}`).join(", ");
   function langNames(m) {
     if (m.lang_names) return (m.languages || []).map(c => m.lang_names[c] || c);
@@ -844,11 +846,7 @@
       c.textContent = `${m.series}${m.series_index ? " · book " + (+m.series_index) : ""}`;
       chips.appendChild(c);
     }
-    if (m.rating) {
-      const c = document.createElement("span");
-      c.className = "chip"; c.innerHTML = `<span class="stars">${stars(m.rating)}</span>`;
-      chips.appendChild(c);
-    }
+    renderDrawerRating(m);
     for (const t of (m.tags || []).slice(0, 8)) {
       const c = document.createElement("span");
       c.className = "chip"; c.textContent = t;
@@ -884,6 +882,30 @@
       tpl.content.querySelectorAll("*").forEach(n =>
         [...n.attributes].forEach(a => { if (/^on/i.test(a.name)) n.removeAttribute(a.name); }));
       com.appendChild(tpl.content);
+    }
+  }
+
+  function renderDrawerRating(m) {
+    const id = state.current;
+    const cur = ratingStars(m);
+    const box = $("#d-rating");
+    box.innerHTML = "";
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement("span");
+      s.textContent = "★";
+      s.classList.toggle("on", i <= cur);
+      s.addEventListener("click", async () => {
+        const next = (i === cur) ? null : i * 2;
+        try {
+          const resp = await postJSON(`/cdb/set-fields/${id}/${enc(state.lib)}`,
+            { changes: { rating: next }, loaded_book_ids: [] });
+          applyUpdate(id, resp[id]);
+          toast(next ? `Rated ${i}★` : "Rating cleared", "ok");
+        } catch (e) {
+          toast(writeError(e), "err");
+        }
+      });
+      box.appendChild(s);
     }
   }
 
@@ -969,8 +991,7 @@
     $("#e-pubdate").value = m.pubdate && !undefinedDate(m.pubdate) ? m.pubdate.slice(0, 10) : "";
     $("#e-publisher").value = m.publisher || "";
     $("#e-languages").value = langNames(m).join(", ");
-    let r = +m.rating || 0; if (r > 5) r = r / 2;
-    editRating = Math.round(r);
+    editRating = ratingStars(m);
     paintStars();
     editCoverData = null;
     $("#e-cover").value = "";
