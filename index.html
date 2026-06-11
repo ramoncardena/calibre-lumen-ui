@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumen · Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,640&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:    #14161d;
+    --panel:  #1b1e28;
+    --raise:  #232734;
+    --line:   #2b3040;
+    --text:   #eae5d9;
+    --muted:  #8b90a4;
+    --lamp:   #e8a849;
+    --lamp-dim: rgba(232,168,73,.14);
+    --ok:     #8fc78f;
+    --danger: #d96a5b;
+    --radius: 10px;
+    --font-body: "Inter", system-ui, sans-serif;
+    --font-display: "Fraunces", Georgia, serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--raise) transparent; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: var(--raise); border-radius: 99px; border: 2px solid var(--panel); }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  html, body { margin: 0; }
+  body {
+    background: var(--ink); color: var(--text);
+    font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+    min-height: 100vh;
+  }
+  ::selection { background: var(--lamp); color: var(--ink); }
+  button { font: inherit; }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--ink) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar {
+    max-width: 1560px; margin: 0 auto;
+    padding: 14px 24px 12px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .brand { font-family: var(--font-display); font-weight: 640; font-size: 25px; margin: 0; line-height: 1; }
+  .brand .dot { color: var(--lamp); }
+  #statusline { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+  #statusline b { color: var(--text); font-weight: 500; }
+  .controls { margin-left: auto; display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+  .search-wrap { position: relative; }
+  .search-wrap kbd {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; pointer-events: none;
+  }
+  input[type="search"] {
+    width: min(300px, 60vw);
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 9px 38px 9px 13px; font: inherit; outline: none; transition: border-color .15s;
+  }
+  input[type="search"]::placeholder { color: var(--muted); }
+  input[type="search"]:focus { border-color: var(--lamp); }
+  select {
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 9px 11px; font-size: 13.5px; outline: none; cursor: pointer;
+  }
+  .btn {
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 9px 14px; font-size: 13.5px; cursor: pointer;
+    transition: border-color .12s;
+  }
+  .btn:hover { border-color: var(--lamp); }
+  .btn.primary { background: var(--lamp); color: var(--ink); border-color: var(--lamp); font-weight: 600; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  select:focus-visible, button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--lamp); outline-offset: 2px;
+  }
+  #filters-toggle { display: none; }
+
+  /* ---------- layout ---------- */
+  .wrap {
+    max-width: 1560px; margin: 0 auto;
+    display: grid; grid-template-columns: 232px 1fr; gap: 26px;
+    padding: 22px 24px 80px; align-items: start;
+  }
+  aside.facets {
+    position: sticky; top: 76px;
+    max-height: calc(100vh - 96px); overflow-y: auto;
+    padding-right: 6px; scrollbar-width: thin;
+  }
+  .facet { border-bottom: 1px solid var(--line); padding: 4px 0 8px; }
+  .facet > button.head {
+    width: 100%; background: none; border: 0; color: var(--text); cursor: pointer;
+    display: flex; align-items: center; gap: 8px; padding: 8px 2px;
+    font-family: var(--font-mono); font-size: 11.5px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .08em; text-align: left;
+  }
+  .facet .tri { color: var(--muted); transition: transform .15s; font-size: 9px; }
+  .facet.open .tri { transform: rotate(90deg); }
+  .facet .n { margin-left: auto; color: var(--muted); font-weight: 400; }
+  .facet ul { list-style: none; margin: 0 0 4px; padding: 0; display: none; }
+  .facet.open ul { display: block; }
+  .facet li button {
+    width: 100%; background: none; border: 0; color: var(--muted); cursor: pointer;
+    display: flex; gap: 8px; align-items: baseline; padding: 4px 2px 4px 18px;
+    font-size: 13px; text-align: left; border-radius: 6px;
+  }
+  .facet li button:hover { color: var(--text); background: var(--panel); }
+  .facet li button.active { color: var(--lamp); }
+  .facet li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .facet li .count { margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; }
+  .facet .more { padding-left: 18px; font-size: 12px; color: var(--muted); background: none; border: 0; cursor: pointer; }
+  .facet .more:hover { color: var(--lamp); }
+
+  #active { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+  #active:empty { display: none; }
+  #active .fchip {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--lamp-dim); color: var(--lamp);
+    border: 1px solid rgba(232,168,73,.4); border-radius: 99px;
+    padding: 4px 11px; font-family: var(--font-mono); font-size: 12px; cursor: pointer;
+  }
+  #active .fchip:hover { border-color: var(--lamp); }
+
+  /* ---------- grid ---------- */
+  #grid { display: grid; gap: 26px 20px; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); }
+  .book { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; display: block; width: 100%; }
+  .cover {
+    position: relative; aspect-ratio: 5 / 7.6; border-radius: 6px; overflow: hidden;
+    background: var(--panel); box-shadow: 0 1px 2px rgba(0,0,0,.5);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .book:hover .cover, .book:focus-visible .cover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px -10px rgba(0,0,0,.7), 0 0 0 1px var(--line),
+                0 6px 38px -6px var(--lamp-dim), 0 0 22px var(--lamp-dim);
+  }
+  .cover .spine {
+    position: absolute; inset: 0; padding: 14px 12px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background: linear-gradient(160deg, var(--raise), var(--panel));
+    border: 1px solid var(--line); border-radius: 6px;
+  }
+  .spine .t { font-family: var(--font-display); font-weight: 640; font-size: 15px; line-height: 1.25; }
+  .spine .a { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .meta { margin-top: 9px; }
+  .meta .t {
+    font-size: 13.5px; font-weight: 600; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .meta .a { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .readmark {
+    position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,22,29,.85); color: var(--ok);
+    border: 1px solid rgba(143,199,143,.5); border-radius: 50%;
+    font-size: 12px; backdrop-filter: blur(4px);
+  }
+  .badge {
+    position: absolute; top: 8px; left: 8px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    background: rgba(20,22,29,.82); color: var(--lamp);
+    border: 1px solid rgba(232,168,73,.35);
+    padding: 2px 7px; border-radius: 99px; backdrop-filter: blur(4px);
+  }
+  #sentinel { height: 1px; }
+  #empty, #error { padding: 80px 0; text-align: center; color: var(--muted); }
+  #empty h2, #error h2 { font-family: var(--font-display); font-weight: 640; color: var(--text); margin: 0 0 8px; }
+  #error code { font-family: var(--font-mono); font-size: 12.5px; color: var(--lamp); }
+  .hidden { display: none !important; }
+
+  /* ---------- drawer ---------- */
+  #scrim {
+    position: fixed; inset: 0; z-index: 30; background: rgba(8,9,13,.6);
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  #scrim.open { opacity: 1; pointer-events: auto; }
+  #drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 31;
+    width: min(460px, 96vw);
+    background: var(--panel); border-left: 1px solid var(--line);
+    transform: translateX(102%); transition: transform .24s cubic-bezier(.3,.8,.3,1);
+    overflow-y: auto; padding: 26px 26px 40px;
+  }
+  #drawer.open { transform: translateX(0); }
+  @media (prefers-reduced-motion: reduce) { #drawer, #scrim, .cover, .facet .tri, #modal { transition: none; } }
+  .closebtn {
+    position: absolute; top: 14px; right: 14px; z-index: 2;
+    background: var(--raise); color: var(--muted); border: 1px solid var(--line);
+    width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 15px;
+  }
+  .closebtn:hover { color: var(--text); }
+  #d-cover {
+    width: 58%; margin: 6px auto 20px; display: block; border-radius: 8px;
+    box-shadow: 0 18px 40px -12px rgba(0,0,0,.75), 0 0 30px var(--lamp-dim);
+  }
+  #d-title { font-family: var(--font-display); font-weight: 640; font-size: 24px; line-height: 1.2; margin: 0 0 4px; }
+  #d-authors { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .chip { font-family: var(--font-mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 3px 9px; }
+  .chip.series { color: var(--lamp); border-color: rgba(232,168,73,.4); }
+  .stars { color: var(--lamp); letter-spacing: 2px; font-size: 14px; }
+  .dl { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+  .dl a {
+    text-decoration: none; font-family: var(--font-mono); font-size: 12.5px; font-weight: 500;
+    color: var(--ink); background: var(--lamp); border-radius: 8px; padding: 8px 14px; transition: filter .12s;
+  }
+  .dl a:hover { filter: brightness(1.1); }
+  .actions { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .kv { font-size: 13px; color: var(--muted); display: grid; grid-template-columns: 86px 1fr; gap: 3px 10px; margin-bottom: 18px; }
+  .kv dt { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+  .kv dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+  #d-comments { font-size: 13.5px; color: #c8c4ba; border-top: 1px solid var(--line); padding-top: 14px; }
+  #d-comments p { margin: 0 0 .7em; }
+
+  /* ---------- edit modal ---------- */
+  #modal-scrim {
+    position: fixed; inset: 0; z-index: 40; background: rgba(8,9,13,.72);
+    opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  #modal-scrim.open { opacity: 1; pointer-events: auto; }
+  #modal {
+    position: fixed; z-index: 41; inset: 0; margin: auto;
+    width: min(880px, 96vw); height: fit-content; max-height: min(92vh, 840px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    display: none; flex-direction: column;
+  }
+  #modal.open { display: flex; }
+  #modal .m-head {
+    padding: 18px 24px 14px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center;
+  }
+  #modal .m-head h2 { font-family: var(--font-display); font-weight: 640; font-size: 21px; margin: 0; }
+  #modal .m-body { overflow-y: auto; overflow-x: hidden; padding: 22px 24px; flex: 1; min-height: 0; }
+  #modal .m-foot {
+    padding: 14px 24px; border-top: 1px solid var(--line);
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .m-grid { display: grid; grid-template-columns: 190px 1fr; gap: 24px; }
+  .m-grid > div, .m-fields label, .frow > label, .frow-series > label { min-width: 0; }
+  @media (max-width: 700px) { .m-grid { grid-template-columns: 1fr; } }
+  .m-cover-col {
+    display: grid; grid-template-columns: minmax(0, 1fr);
+    gap: 10px; align-content: start; min-width: 0;
+  }
+  .m-cover-col label { min-width: 0; }
+  #m-cover-preview {
+    width: 100%; aspect-ratio: 5/7.6; object-fit: cover; border-radius: 8px;
+    background: var(--ink); border: 1px solid var(--line);
+  }
+  .m-fields { display: grid; gap: 13px; align-content: start; }
+  .m-fields label, .m-cover-col label {
+    display: grid; gap: 4px; font-family: var(--font-mono); font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+  }
+  .m-fields input, .m-fields textarea, .fetch-panel input {
+    background: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); padding: 8px 11px; font: inherit; font-size: 14px; outline: none;
+    width: 100%; min-width: 0;
+  }
+  .m-fields input:focus, .m-fields textarea:focus, .fetch-panel input:focus { border-color: var(--lamp); }
+  .m-fields textarea { min-height: 110px; resize: vertical; }
+  .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .frow-series { display: grid; grid-template-columns: 1fr 96px; gap: 10px; }
+  .starpick { display: flex; gap: 3px; font-size: 21px; line-height: 1.4; cursor: pointer; user-select: none; }
+  .starpick span { color: var(--line); }
+  .starpick span.on { color: var(--lamp); }
+  input[type="file"] { width: 100%; min-width: 0; color: var(--muted); font-size: 12px; }
+  input[type="date"] { color-scheme: dark; }
+
+  /* fetch panel */
+  .fetch-panel { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-top: 6px; display: grid; gap: 10px; }
+  .fetch-panel .frow3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  @media (max-width: 700px) { .fetch-panel .frow3 { grid-template-columns: 1fr; } }
+  #fetch-results { display: grid; gap: 8px; max-height: 280px; overflow-y: auto; }
+  .fr {
+    display: grid; grid-template-columns: 44px 1fr auto auto; gap: 12px; align-items: center;
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--ink);
+  }
+  .fr .unfold {
+    background: none; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--muted); width: 30px; height: 30px; cursor: pointer; font-size: 11px;
+  }
+  .fr .unfold:hover { color: var(--lamp); border-color: var(--lamp); }
+  .fr .unfold.open { color: var(--lamp); transform: rotate(90deg); }
+  .fr-detail {
+    grid-column: 1 / -1; border-top: 1px solid var(--line);
+    padding-top: 9px; display: grid; gap: 6px;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .fr-detail dl { margin: 0; display: grid; grid-template-columns: 78px 1fr; gap: 2px 10px; }
+  .fr-detail dt { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding-top: 1px; }
+  .fr-detail dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+  .fr-detail .desc { color: #c8c4ba; max-height: 150px; overflow-y: auto; line-height: 1.45; white-space: pre-wrap; }
+  .fr img { width: 44px; height: 62px; object-fit: cover; border-radius: 4px; background: var(--raise); }
+  .fr .t { font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+  .fr .s { font-size: 12px; color: var(--muted); }
+  .fr .src { font-family: var(--font-mono); font-size: 10px; color: var(--lamp); }
+  #fetch-status { font-size: 12.5px; color: var(--muted); }
+
+  /* ---------- toasts ---------- */
+  #toasts { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; display: grid; gap: 8px; }
+  .toast {
+    background: var(--raise); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); font-size: 13.5px; padding: 10px 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5); max-width: 90vw;
+  }
+  .toast.err { border-color: var(--danger); }
+  .toast.ok { border-color: rgba(232,168,73,.5); }
+
+  footer { border-top: 1px solid var(--line); color: var(--muted); font-family: var(--font-mono); font-size: 11.5px; padding: 16px 24px; text-align: center; }
+
+  @media (max-width: 860px) {
+    .wrap { grid-template-columns: 1fr; }
+    aside.facets {
+      position: fixed; inset: 0 25% 0 0; z-index: 32; top: 0;
+      background: var(--panel); border-right: 1px solid var(--line);
+      max-height: none; padding: 18px; transform: translateX(-103%); transition: transform .22s;
+    }
+    aside.facets.open { transform: translateX(0); }
+    #filters-toggle { display: inline-block; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <h1 class="brand">Lumen<span class="dot">.</span></h1>
+    <span id="statusline">connecting…</span>
+    <div class="controls">
+      <button id="filters-toggle" class="btn">Filters</button>
+      <select id="library" title="Library" class="hidden"></select>
+      <select id="sort" title="Sort">
+        <option value="timestamp:desc">Recently added</option>
+        <option value="title:asc">Title A–Z</option>
+        <option value="authors:asc">Author A–Z</option>
+        <option value="rating:desc">Rating</option>
+        <option value="pubdate:desc">Newest published</option>
+      </select>
+      <div class="search-wrap">
+        <input id="q" type="search" placeholder="Search title, author, tags…" autocomplete="off">
+        <kbd>/</kbd>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside class="facets" id="facets" aria-label="Filters"></aside>
+  <main>
+    <div id="active"></div>
+    <div id="grid"></div>
+    <div id="sentinel"></div>
+    <div id="empty" class="hidden">
+      <h2>Nothing on this shelf</h2>
+      <p>No books match. Calibre query syntax works here — try <span style="font-family:var(--font-mono)">author:clausen</span> or <span style="font-family:var(--font-mono)">tag:scifi</span>.</p>
+    </div>
+    <div id="error" class="hidden">
+      <h2>Can't reach the library</h2>
+      <p id="error-msg"></p>
+      <p>Check that the Calibre Content Server is running and that <code>server.py --calibre URL</code> points at it.</p>
+    </div>
+  </main>
+</div>
+
+<footer>Lumen · a quiet front-end for the Calibre Content Server</footer>
+
+<div id="scrim"></div>
+<aside id="drawer" aria-label="Book details">
+  <button class="closebtn" id="d-close" title="Close (Esc)">✕</button>
+  <img id="d-cover" alt="">
+  <h2 id="d-title"></h2>
+  <p id="d-authors"></p>
+  <div class="chips" id="d-chips"></div>
+  <div class="dl" id="d-formats"></div>
+  <div class="actions">
+    <button class="btn" id="d-read"></button>
+    <button class="btn" id="d-progress"></button>
+    <button class="btn" id="d-edit">Edit metadata</button>
+  </div>
+  <dl class="kv" id="d-kv"></dl>
+  <div id="d-comments"></div>
+</aside>
+
+<!-- centered edit dialog -->
+<div id="modal-scrim"></div>
+<div id="modal" role="dialog" aria-modal="true" aria-label="Edit metadata">
+  <div class="m-head">
+    <h2>Edit metadata</h2>
+    <button class="closebtn" id="m-close" title="Close" style="position:static;margin-left:auto">✕</button>
+  </div>
+  <div class="m-body">
+    <div class="m-grid">
+      <div class="m-cover-col">
+        <img id="m-cover-preview" alt="">
+        <label>Replace cover
+          <input type="file" id="e-cover" accept="image/jpeg,image/png">
+        </label>
+        <button class="btn" id="fetch-toggle">⇣ Download metadata</button>
+      </div>
+      <div class="m-fields">
+        <div class="frow">
+          <label>Title <input type="text" id="e-title"></label>
+          <label>Title sort <input type="text" id="e-title-sort"></label>
+        </div>
+        <div class="frow">
+          <label>Author(s) <input type="text" id="e-authors" placeholder="Author One & Author Two"></label>
+          <label>Author sort <input type="text" id="e-author-sort"></label>
+        </div>
+        <div class="frow-series">
+          <label>Series <input type="text" id="e-series"></label>
+          <label>Number <input type="number" id="e-series-index" step="0.1" min="0"></label>
+        </div>
+        <label>Rating <div class="starpick" id="e-rating" title="Click to set, click the same star to clear"></div></label>
+        <label>Tags <input type="text" id="e-tags" placeholder="Fiction, Science Fiction"></label>
+        <label>Ids <input type="text" id="e-ids" placeholder="isbn:9798288453373, google:59500QEACAAJ"></label>
+        <div class="frow">
+          <label>Date <input type="date" id="e-date"></label>
+          <label>Published <input type="date" id="e-pubdate"></label>
+        </div>
+        <div class="frow">
+          <label>Publisher <input type="text" id="e-publisher"></label>
+          <label>Languages <input type="text" id="e-languages" placeholder="English"></label>
+        </div>
+        <label>Comments <textarea id="e-comments"></textarea></label>
+        <div class="fetch-panel hidden" id="fetch-panel">
+          <div class="frow3">
+            <input type="text" id="f-title" placeholder="Title">
+            <input type="text" id="f-author" placeholder="Author">
+            <input type="text" id="f-isbn" placeholder="ISBN">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn primary" id="f-search">Search sources</button>
+            <span id="fetch-status"></span>
+          </div>
+          <div id="fetch-results"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="m-foot">
+    <button class="btn" id="e-cancel">Cancel</button>
+    <button class="btn primary" id="e-save">Save changes</button>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+(() => {
+  const PAGE = 60;
+  // Custom yes/no columns (change if yours are named differently)
+  const READ_COL = "#read";
+  const STARTED_COL = "#started";
+
+  const state = {
+    lib: null, query: "", sort: "timestamp", order: "desc",
+    offset: 0, total: 0, loading: false, done: false,
+    books: new Map(), filters: [], current: null,
+  };
+
+  const $ = s => document.querySelector(s);
+  const grid = $("#grid"), statusline = $("#statusline");
+  const drawer = $("#drawer"), scrim = $("#scrim");
+  const enc = encodeURIComponent;
+
+  const coverStamps = new Map();
+  const cacheKey = id => coverStamps.get(String(id)) || 0;
+  const coverUrl = id => `/get/thumb/${id}/${enc(state.lib)}?sz=320x460&t=${cacheKey(id)}`;
+  const bigCover = id => `/get/cover/${id}/${enc(state.lib)}?t=${cacheKey(id)}`;
+  const dlUrl = (id, f) => `/get/${f}/${id}/${enc(state.lib)}`;
+
+  async function api(path, opts) {
+    const r = await fetch(path, opts);
+    if (!r.ok) {
+      let msg = r.statusText;
+      try { msg = (await r.text()).slice(0, 300) || msg; } catch {}
+      throw new Error(`${r.status} ${msg}`);
+    }
+    return r.json();
+  }
+  const postJSON = (path, body) => api(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  function toast(msg, kind = "") {
+    const t = document.createElement("div");
+    t.className = "toast " + kind;
+    t.textContent = msg;
+    $("#toasts").appendChild(t);
+    setTimeout(() => t.remove(), 4600);
+  }
+  function writeError(e) {
+    if (/403/.test(e.message)) {
+      return "Calibre refused the change (403): the proxy's IP isn't trusted. " +
+             "See the README — set trusted IPs in Sharing over the net → Advanced and restart the content server.";
+    }
+    return e.message;
+  }
+  const escapeHtml = s => String(s).replace(/[&<>"']/g,
+    c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  const hexEncode = s => [...new TextEncoder().encode(s)].map(b => b.toString(16).padStart(2, "0")).join("");
+  const hexDecode = h => new TextDecoder().decode(new Uint8Array(h.match(/../g).map(x => parseInt(x, 16))));
+
+  function boolCol(m, col) {
+    if (col in m) return m[col] === true;                 // /cdb/set-fields shape
+    const um = m.user_metadata && m.user_metadata[col];   // /ajax/books shape
+    return !!(um && um["#value#"] === true);
+  }
+  const readFlag = m => boolCol(m, READ_COL);
+  const startedFlag = m => boolCol(m, STARTED_COL);
+  const undefinedDate = s => !s || s.slice(0, 4) === "0101" || s.slice(0, 4) === "0100";
+
+  /* ================= search & grid ================= */
+
+  function buildQuery() {
+    const parts = state.filters.map(f => f.q);
+    const text = state.query.trim();
+    if (text) parts.push(`(${text})`);
+    return parts.join(" and ");
+  }
+  function setStatus() {
+    statusline.innerHTML = state.total
+      ? `<b>${state.total}</b> books · showing <b>${grid.children.length}</b>`
+      : `library empty`;
+  }
+
+  function card(id, m) {
+    const btn = document.createElement("button");
+    btn.className = "book"; btn.dataset.id = id;
+    const authors = (m.authors || []).join(", ");
+    const series = m.series
+      ? `<span class="badge">${escapeHtml(m.series)}${m.series_index ? " #" + (+m.series_index) : ""}</span>` : "";
+    const read = readFlag(m) ? `<span class="readmark" title="Read">✓</span>` : "";
+    btn.innerHTML = `
+      <div class="cover">${series}${read}<img loading="lazy" src="${coverUrl(id)}" alt=""></div>
+      <div class="meta">
+        <div class="t">${escapeHtml(m.title || "Untitled")}</div>
+        <div class="a">${escapeHtml(authors)}</div>
+      </div>`;
+    btn.querySelector("img").addEventListener("error", e => {
+      e.target.closest(".cover").innerHTML =
+        `<div class="spine"><div class="t">${escapeHtml(m.title || "Untitled")}</div>
+         <div class="a">${escapeHtml(authors)}</div></div>`;
+    });
+    btn.addEventListener("click", () => openDrawer(id));
+    return btn;
+  }
+
+  async function loadPage() {
+    if (state.loading || state.done || !state.lib) return;
+    state.loading = true;
+    try {
+      const s = await api(`/ajax/search?library_id=${enc(state.lib)}&num=${PAGE}` +
+        `&offset=${state.offset}&sort=${enc(state.sort)}&sort_order=${state.order}` +
+        `&query=${enc(buildQuery())}`);
+      state.total = s.total_num;
+      const ids = s.book_ids || [];
+      if (ids.length) {
+        const meta = await api(`/ajax/books?library_id=${enc(state.lib)}&ids=${ids.join(",")}`);
+        const frag = document.createDocumentFragment();
+        for (const id of ids) {
+          const m = meta[id];
+          if (!m) continue;
+          state.books.set(String(id), m);
+          frag.appendChild(card(id, m));
+        }
+        grid.appendChild(frag);
+      }
+      state.offset += ids.length;
+      state.done = state.offset >= state.total || ids.length === 0;
+      $("#empty").classList.toggle("hidden", state.total !== 0);
+      $("#error").classList.add("hidden");
+      setStatus();
+    } catch (e) {
+      $("#error-msg").textContent = e.message;
+      $("#error").classList.remove("hidden");
+      statusline.textContent = "offline";
+    } finally {
+      state.loading = false;
+    }
+  }
+
+  function reset() {
+    grid.innerHTML = "";
+    state.offset = 0; state.total = 0; state.done = false;
+    $("#empty").classList.add("hidden");
+    renderActiveChips();
+    loadPage();
+  }
+
+  new IntersectionObserver(es => { if (es[0].isIntersecting) loadPage(); },
+    { rootMargin: "600px" }).observe($("#sentinel"));
+
+  /* ================= filter sidebar ================= */
+
+  const FILTERABLE = {
+    authors:   n => `authors:"=${escq(n)}"`,
+    series:    n => `series:"=${escq(n)}"`,
+    tags:      n => `tags:"=${escq(n)}"`,
+    publisher: n => `publisher:"=${escq(n)}"`,
+    languages: n => `languages:"=${escq(n)}"`,
+    rating:    n => `rating:${(n.match(/★/g) || []).length}`,
+  };
+  const escq = s => String(s).replace(/"/g, '\\"');
+  const customFilter = key => n => {
+    const ln = String(n).trim().toLowerCase();               // yes/no columns
+    if (ln === "yes" || ln === "true") return `${key}:true`;
+    if (ln === "no" || ln === "false") return `${key}:false`;
+    return `${key}:"=${escq(n)}"`;                           // #genre etc.
+  };
+
+  async function loadCategories() {
+    const facets = $("#facets");
+    facets.innerHTML = "";
+    let cats;
+    try {
+      cats = await api(`/ajax/categories/${enc(state.lib)}`);
+    } catch (e) {
+      facets.innerHTML = `<div class="facet" style="color:var(--muted);font-size:12.5px;padding:10px 2px">Filters unavailable: ${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    for (const c of cats) {
+      if (!c.is_category) continue;
+      const m = (c.url || "").match(/\/ajax\/category\/([0-9a-fA-F]+)/);
+      if (!m) continue;
+      const key = hexDecode(m[1]);
+      if (!(key in FILTERABLE) && !key.startsWith("#")) continue;
+      facets.appendChild(facetSection(key, c.name));
+    }
+  }
+
+  function facetSection(key, displayName) {
+    const sec = document.createElement("div");
+    sec.className = "facet"; sec.dataset.key = key;
+    sec.innerHTML = `
+      <button class="head"><span class="tri">▶</span> ${escapeHtml(displayName)} <span class="n"></span></button>
+      <ul></ul>
+      <button class="more hidden">Show more…</button>`;
+    let loaded = false, offset = 0, total = 0;
+    const ul = sec.querySelector("ul");
+    const more = sec.querySelector(".more");
+
+    async function loadItems() {
+      try {
+        const d = await api(`/ajax/category/${hexEncode(key)}/${enc(state.lib)}?num=120&offset=${offset}&sort=name&sort_order=asc`);
+        total = d.total_num;
+        sec.querySelector(".n").textContent = total;
+        for (const it of (d.items || [])) {
+          const li = document.createElement("li");
+          const b = document.createElement("button");
+          b.innerHTML = `<span class="name">${escapeHtml(it.name)}</span><span class="count">${it.count ?? ""}</span>`;
+          b.addEventListener("click", () => toggleFilter(key, it.name));
+          li.appendChild(b); ul.appendChild(li);
+        }
+        offset += (d.items || []).length;
+        more.classList.toggle("hidden", offset >= total);
+      } catch (e) {
+        toast(`Couldn't load ${displayName}: ${e.message}`, "err");
+      }
+    }
+    sec.querySelector(".head").addEventListener("click", async () => {
+      sec.classList.toggle("open");
+      if (!loaded && sec.classList.contains("open")) { loaded = true; await loadItems(); }
+      syncFacetHighlights();
+    });
+    more.addEventListener("click", loadItems);
+    return sec;
+  }
+
+  function toggleFilter(key, name) {
+    const i = state.filters.findIndex(f => f.key === key && f.name === name);
+    if (i >= 0) state.filters.splice(i, 1);
+    else {
+      const mk = FILTERABLE[key] || customFilter(key);
+      state.filters.push({ key, name, q: mk(name) });
+    }
+    syncFacetHighlights();
+    reset();
+  }
+  function syncFacetHighlights() {
+    document.querySelectorAll(".facet li button").forEach(b => {
+      const key = b.closest(".facet").dataset.key;
+      const name = b.querySelector(".name").textContent;
+      b.classList.toggle("active", state.filters.some(f => f.key === key && f.name === name));
+    });
+  }
+  function renderActiveChips() {
+    const box = $("#active");
+    box.innerHTML = "";
+    for (const f of state.filters) {
+      const c = document.createElement("button");
+      c.className = "fchip";
+      c.innerHTML = `${escapeHtml(f.name)} <span>✕</span>`;
+      c.title = "Remove filter";
+      c.addEventListener("click", () => toggleFilter(f.key, f.name));
+      box.appendChild(c);
+    }
+  }
+  $("#filters-toggle").addEventListener("click", () => $("#facets").classList.toggle("open"));
+
+  /* ================= drawer (view) ================= */
+
+  function stars(r) {
+    if (!r) return "";
+    let n = +r; if (n > 5) n = n / 2;
+    n = Math.round(n);
+    return "★".repeat(n) + "☆".repeat(5 - n);
+  }
+  const idsToString = ids => Object.entries(ids || {}).map(([k, v]) => `${k}:${v}`).join(", ");
+  function langNames(m) {
+    if (m.lang_names) return (m.languages || []).map(c => m.lang_names[c] || c);
+    return m.languages || [];
+  }
+
+  function openDrawer(id) {
+    const m = state.books.get(String(id));
+    if (!m) return;
+    state.current = String(id);
+    showView(m);
+    drawer.classList.add("open");
+    scrim.classList.add("open");
+  }
+
+  function showView(m) {
+    const id = state.current;
+    const isRead = readFlag(m);
+    const rb = $("#d-read");
+    rb.textContent = isRead ? "✓ Read" : "Mark as read";
+    rb.style.color = isRead ? "var(--ok)" : "";
+    const started = startedFlag(m);
+    const pb = $("#d-progress");
+    pb.textContent = started ? "◐ In progress" : "Mark in progress";
+    pb.style.color = started ? "var(--lamp)" : "";
+    $("#d-cover").src = bigCover(id);
+    $("#d-title").textContent = m.title || "Untitled";
+    $("#d-authors").textContent = (m.authors || []).join(", ");
+
+    const chips = $("#d-chips");
+    chips.innerHTML = "";
+    if (m.series) {
+      const c = document.createElement("span");
+      c.className = "chip series";
+      c.textContent = `${m.series}${m.series_index ? " · book " + (+m.series_index) : ""}`;
+      chips.appendChild(c);
+    }
+    if (m.rating) {
+      const c = document.createElement("span");
+      c.className = "chip"; c.innerHTML = `<span class="stars">${stars(m.rating)}</span>`;
+      chips.appendChild(c);
+    }
+    for (const t of (m.tags || []).slice(0, 8)) {
+      const c = document.createElement("span");
+      c.className = "chip"; c.textContent = t;
+      chips.appendChild(c);
+    }
+
+    const dl = $("#d-formats");
+    dl.innerHTML = "";
+    for (const f of (m.formats || [])) {
+      const a = document.createElement("a");
+      a.href = dlUrl(id, f); a.textContent = "↓ " + f.toUpperCase();
+      dl.appendChild(a);
+    }
+
+    const kv = $("#d-kv");
+    kv.innerHTML = "";
+    for (const [k, v] of [
+      ["Publisher", m.publisher],
+      ["Published", !undefinedDate(m.pubdate) ? m.pubdate.slice(0, 10) : null],
+      ["Added", m.timestamp ? m.timestamp.slice(0, 10) : null],
+      ["Languages", langNames(m).join(", ") || null],
+      ["Ids", idsToString(m.identifiers) || null],
+    ]) {
+      if (v) kv.insertAdjacentHTML("beforeend", `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`);
+    }
+
+    const com = $("#d-comments");
+    com.innerHTML = "";
+    if (m.comments) {
+      const tpl = document.createElement("template");
+      tpl.innerHTML = m.comments;
+      tpl.content.querySelectorAll("script,iframe,object,style,link").forEach(n => n.remove());
+      tpl.content.querySelectorAll("*").forEach(n =>
+        [...n.attributes].forEach(a => { if (/^on/i.test(a.name)) n.removeAttribute(a.name); }));
+      com.appendChild(tpl.content);
+    }
+  }
+
+  function closeDrawer() {
+    drawer.classList.remove("open");
+    scrim.classList.remove("open");
+    state.current = null;
+  }
+  scrim.addEventListener("click", closeDrawer);
+  $("#d-close").addEventListener("click", closeDrawer);
+
+  /* ================= read toggle ================= */
+
+  async function toggleBoolCol(col, flagFn, onMsg, offMsg) {
+    const id = state.current;
+    const m = state.books.get(id);
+    if (!m) return;
+    const next = !flagFn(m);
+    try {
+      const resp = await postJSON(`/cdb/set-fields/${id}/${enc(state.lib)}`,
+        { changes: { [col]: next }, loaded_book_ids: [] });
+      applyUpdate(id, resp[id]);
+      toast(next ? onMsg : offMsg, "ok");
+    } catch (e) {
+      toast(writeError(e), "err");
+    }
+  }
+  $("#d-read").addEventListener("click", () =>
+    toggleBoolCol(READ_COL, readFlag, "Marked as read", "Marked as unread"));
+  $("#d-progress").addEventListener("click", () =>
+    toggleBoolCol(STARTED_COL, startedFlag, "Marked in progress", "No longer in progress"));
+
+  function applyUpdate(id, updated) {
+    if (!updated) return;
+    state.books.set(String(id), updated);
+    const old = grid.querySelector(`.book[data-id="${id}"]`);
+    if (old) old.replaceWith(card(id, updated));
+    if (state.current === String(id)) showView(updated);
+  }
+
+  /* ================= edit modal ================= */
+
+  let editRating = 0;
+  let editCoverData = null;
+
+  function paintStars() {
+    const box = $("#e-rating");
+    box.innerHTML = "";
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement("span");
+      s.textContent = "★";
+      s.classList.toggle("on", i <= editRating);
+      s.addEventListener("click", () => { editRating = (editRating === i) ? 0 : i; paintStars(); });
+      box.appendChild(s);
+    }
+  }
+
+  function openModal() {
+    const m = state.books.get(state.current);
+    if (!m) return;
+    $("#e-title").value = m.title || "";
+    $("#e-title-sort").value = m.sort || "";
+    $("#e-authors").value = (m.authors || []).join(" & ");
+    $("#e-author-sort").value = m.author_sort || "";
+    $("#e-series").value = m.series || "";
+    $("#e-series-index").value = m.series ? (+m.series_index || 1) : "";
+    $("#e-tags").value = (m.tags || []).join(", ");
+    $("#e-ids").value = idsToString(m.identifiers);
+    $("#e-date").value = m.timestamp && !undefinedDate(m.timestamp) ? m.timestamp.slice(0, 10) : "";
+    $("#e-pubdate").value = m.pubdate && !undefinedDate(m.pubdate) ? m.pubdate.slice(0, 10) : "";
+    $("#e-publisher").value = m.publisher || "";
+    $("#e-languages").value = langNames(m).join(", ");
+    let r = +m.rating || 0; if (r > 5) r = r / 2;
+    editRating = Math.round(r);
+    paintStars();
+    editCoverData = null;
+    $("#e-cover").value = "";
+    $("#m-cover-preview").src = bigCover(state.current);
+    const tmp = document.createElement("div");
+    tmp.innerHTML = m.comments || "";
+    $("#e-comments").value = tmp.textContent.trim();
+    $("#fetch-panel").classList.add("hidden");
+    $("#fetch-results").innerHTML = "";
+    $("#fetch-status").textContent = "";
+    $("#modal").classList.add("open");
+    $("#modal-scrim").classList.add("open");
+  }
+  function closeModal() {
+    $("#modal").classList.remove("open");
+    $("#modal-scrim").classList.remove("open");
+  }
+  $("#d-edit").addEventListener("click", openModal);
+  $("#m-close").addEventListener("click", closeModal);
+  $("#e-cancel").addEventListener("click", closeModal);
+  $("#modal-scrim").addEventListener("click", closeModal);
+
+  $("#e-cover").addEventListener("change", e => {
+    const f = e.target.files[0];
+    if (!f) { editCoverData = null; return; }
+    const r = new FileReader();
+    r.onload = () => {
+      editCoverData = r.result;
+      $("#m-cover-preview").src = editCoverData;
+    };
+    r.readAsDataURL(f);
+  });
+
+  const parseIds = s => {
+    const out = {};
+    for (const part of String(s).split(",")) {
+      const [k, , v] = part.trim().split(/(:)(.+)/);
+      if (k && v) out[k.trim().toLowerCase()] = v.trim();
+    }
+    return out;
+  };
+
+  $("#e-save").addEventListener("click", async () => {
+    const id = state.current;
+    if (!id) return;
+    const series = $("#e-series").value.trim();
+    const changes = {
+      title: $("#e-title").value.trim() || "Untitled",
+      sort: $("#e-title-sort").value.trim() || null,
+      authors: $("#e-authors").value.split("&").map(s => s.trim()).filter(Boolean),
+      author_sort: $("#e-author-sort").value.trim() || null,
+      series: series || null,
+      tags: $("#e-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+      identifiers: parseIds($("#e-ids").value),
+      publisher: $("#e-publisher").value.trim() || null,
+      languages: $("#e-languages").value.split(",").map(s => s.trim()).filter(Boolean),
+      rating: editRating ? editRating * 2 : null,
+      comments: $("#e-comments").value.trim() || null,
+    };
+    if (series) changes.series_index = +$("#e-series-index").value || 1;
+    const d = $("#e-date").value, pd = $("#e-pubdate").value;
+    if (d) changes.timestamp = d;
+    if (pd) changes.pubdate = pd;
+    if (editCoverData) changes.cover = editCoverData;
+    const btn = $("#e-save");
+    btn.disabled = true;
+    try {
+      const resp = await postJSON(`/cdb/set-fields/${id}/${enc(state.lib)}`,
+        { changes, loaded_book_ids: [] });
+      if (editCoverData) coverStamps.set(String(id), Date.now());
+      applyUpdate(id, resp[id]);
+      closeModal();
+      toast("Saved", "ok");
+    } catch (e) {
+      toast(writeError(e), "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  /* ================= download metadata ================= */
+
+  $("#fetch-toggle").addEventListener("click", () => {
+    const p = $("#fetch-panel");
+    p.classList.toggle("hidden");
+    if (!p.classList.contains("hidden")) {
+      $("#f-title").value = $("#e-title").value;
+      $("#f-author").value = ($("#e-authors").value.split("&")[0] || "").trim();
+      $("#f-isbn").value = parseIds($("#e-ids").value).isbn || "";
+      p.scrollIntoView({ block: "nearest" });
+    }
+  });
+
+  $("#f-search").addEventListener("click", async () => {
+    const status = $("#fetch-status"), box = $("#fetch-results"), btn = $("#f-search");
+    btn.disabled = true;
+    box.innerHTML = "";
+    status.textContent = "Searching Google Books and Open Library…";
+    const qs = new URLSearchParams({
+      title: $("#f-title").value.trim(),
+      author: $("#f-author").value.trim(),
+      isbn: $("#f-isbn").value.trim(),
+    });
+    try {
+      const data = await api(`/meta/search?${qs}`);
+      const results = data.results || [];
+      status.textContent = results.length
+        ? `${results.length} results` + (data.errors?.length ? ` · some sources failed` : "")
+        : "No results" + (data.errors?.length ? ` (${data.errors.join("; ")})` : "");
+      for (const r of results) box.appendChild(fetchRow(r));
+    } catch (e) {
+      status.textContent = "Search failed: " + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function fetchRow(r) {
+    const row = document.createElement("div");
+    row.className = "fr";
+    const img = document.createElement("img");
+    if (r.cover_url) img.src = `/meta/cover?url=${enc(r.cover_url)}`;
+    img.addEventListener("error", () => { img.style.visibility = "hidden"; });
+    const mid = document.createElement("div");
+    mid.innerHTML = `<div class="t">${escapeHtml(r.title || "")}</div>
+      <div class="s">${escapeHtml((r.authors || []).join(", "))}${r.pubdate ? " · " + escapeHtml(r.pubdate) : ""}</div>
+      <div class="src">${escapeHtml(r.source)}</div>`;
+    const unfold = document.createElement("button");
+    unfold.className = "unfold"; unfold.textContent = "▶";
+    unfold.title = "Show full metadata";
+    const use = document.createElement("button");
+    use.className = "btn primary"; use.textContent = "Use";
+    use.addEventListener("click", () => useResult(r, use));
+    row.append(img, mid, unfold, use);
+
+    let detail = null;
+    unfold.addEventListener("click", () => {
+      if (!detail) {
+        detail = document.createElement("div");
+        detail.className = "fr-detail";
+        const dl = document.createElement("dl");
+        for (const [k, v] of [
+          ["Title", r.title],
+          ["Authors", (r.authors || []).join(" & ")],
+          ["Publisher", r.publisher],
+          ["Published", r.pubdate],
+          ["Tags", (r.tags || []).join(", ")],
+          ["Ids", idsToString(r.identifiers)],
+        ]) {
+          if (v) dl.insertAdjacentHTML("beforeend",
+            `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`);
+        }
+        detail.appendChild(dl);
+        if (r.comments) {
+          const d = document.createElement("div");
+          d.className = "desc";
+          d.textContent = r.comments;
+          detail.appendChild(d);
+        } else {
+          const d = document.createElement("div");
+          d.textContent = "No description provided by this source.";
+          detail.appendChild(d);
+        }
+        row.appendChild(detail);
+      } else {
+        detail.classList.toggle("hidden");
+      }
+      unfold.classList.toggle("open", !detail.classList.contains("hidden"));
+    });
+    return row;
+  }
+
+  async function useResult(r, btn) {
+    if (r.title) $("#e-title").value = r.title;
+    if (r.authors && r.authors.length) $("#e-authors").value = r.authors.join(" & ");
+    if (r.publisher) $("#e-publisher").value = r.publisher;
+    if (r.pubdate) {
+      let pd = r.pubdate;
+      if (/^\d{4}$/.test(pd)) pd += "-01-01";
+      else if (/^\d{4}-\d{2}$/.test(pd)) pd += "-01";
+      if (/^\d{4}-\d{2}-\d{2}/.test(pd)) $("#e-pubdate").value = pd.slice(0, 10);
+    }
+    if (r.tags && r.tags.length) $("#e-tags").value = r.tags.join(", ");
+    if (r.comments) $("#e-comments").value = r.comments;
+    if (r.identifiers && Object.keys(r.identifiers).length) {
+      const merged = { ...parseIds($("#e-ids").value), ...r.identifiers };
+      $("#e-ids").value = idsToString(merged);
+    }
+    if (r.cover_url) {
+      btn.disabled = true;
+      try {
+        const resp = await fetch(`/meta/cover?url=${enc(r.cover_url)}`);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          editCoverData = await new Promise(res => {
+            const fr = new FileReader();
+            fr.onload = () => res(fr.result);
+            fr.readAsDataURL(blob);
+          });
+          $("#m-cover-preview").src = editCoverData;
+        }
+      } catch {}
+      btn.disabled = false;
+    }
+    toast(`Fields filled from ${r.source} — review, then Save changes`, "ok");
+  }
+
+  /* ================= controls & boot ================= */
+
+  let t;
+  $("#q").addEventListener("input", e => {
+    clearTimeout(t);
+    t = setTimeout(() => { state.query = e.target.value; reset(); }, 280);
+  });
+  $("#sort").addEventListener("change", e => {
+    [state.sort, state.order] = e.target.value.split(":");
+    reset();
+  });
+  $("#library").addEventListener("change", e => {
+    state.lib = e.target.value;
+    state.filters = [];
+    loadCategories();
+    reset();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      if ($("#modal").classList.contains("open")) closeModal();
+      else { closeDrawer(); $("#facets").classList.remove("open"); }
+    }
+    if (e.key === "/" && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
+      e.preventDefault(); $("#q").focus();
+    }
+  });
+
+  (async () => {
+    try {
+      const info = await api("/ajax/library-info");
+      const libs = Object.entries(info.library_map || {});
+      const sel = $("#library");
+      for (const [id, name] of libs) {
+        const o = document.createElement("option");
+        o.value = id; o.textContent = name;
+        sel.appendChild(o);
+      }
+      if (libs.length > 1) sel.classList.remove("hidden");
+      state.lib = info.default_library || (libs[0] && libs[0][0]);
+      sel.value = state.lib;
+      loadCategories();
+      reset();
+    } catch (e) {
+      $("#error-msg").textContent = e.message;
+      $("#error").classList.remove("hidden");
+      statusline.textContent = "offline";
+    }
+  })();
+})();
+</script>
+</body>
+</html>
