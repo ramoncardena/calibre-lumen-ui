@@ -5,6 +5,13 @@ Lumen talks to your existing Calibre library through its built-in API - nothing 
 imported, converted, or duplicated, and the desktop GUI, OPDS feeds, and your
 e-reader keep working against the same database.
 
+<img width="1690" height="798" alt="lumen1" src="https://github.com/user-attachments/assets/a9a49fcb-88b4-4d4c-bb04-62051f20d66a" />
+
+
+| Details | Metadata |
+|------|------|
+| <img width="1683" height="784" alt="lumen2" src="https://github.com/user-attachments/assets/0bfc8d81-5b18-4ec8-ba9d-b974d83f44f0" /> |<img width="1691" height="791" alt="lumen3" src="https://github.com/user-attachments/assets/ed73add5-ebef-4860-ad0f-b1fe618fa512" />|
+
 Two files, zero dependencies (Python 3.8+ standard library only):
 
 | File | Role |
