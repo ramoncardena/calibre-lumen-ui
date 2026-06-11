@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lumen · Library</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314161d'/%3E%3Ctext x='29' y='47' font-family='Georgia%2Cserif' font-size='44' font-weight='600' fill='%23eae5d9' text-anchor='middle'%3EL%3C/text%3E%3Ccircle cx='49' cy='43' r='5.5' fill='%23e8a849'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,640&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -171,7 +172,9 @@
   .progressmark svg, #d-progress svg { display: block; }
   #d-progress svg { display: inline-block; vertical-align: -1px; margin-right: 2px; }
   .badge {
-    position: absolute; top: 8px; left: 8px;
+    position: absolute; bottom: 8px; left: 8px;
+    max-width: calc(100% - 16px);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     font-family: var(--font-mono); font-size: 10.5px;
     background: rgba(20,22,29,.82); color: var(--lamp);
     border: 1px solid rgba(232,168,73,.35);
@@ -548,7 +551,7 @@
     btn.className = "book"; btn.dataset.id = id;
     const authors = (m.authors || []).join(", ");
     const series = m.series
-      ? `<span class="badge">${escapeHtml(m.series)}${m.series_index ? " #" + (+m.series_index) : ""}</span>` : "";
+      ? `<span class="badge">${m.series_index ? "#" + (+m.series_index) + " " : ""}${escapeHtml(m.series)}</span>` : "";
     const read = readFlag(m) ? `<span class="readmark" title="Read">✓</span>`
       : startedFlag(m) ? `<span class="progressmark" title="In progress"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5v6h4.5"/></svg></span>` : "";
     btn.innerHTML = `
