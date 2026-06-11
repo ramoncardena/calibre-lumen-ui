@@ -22,8 +22,13 @@ Usage:
 """
 
 import argparse
+import io
 import json
+import os
 import sys
+import zipfile
+import xml.etree.ElementTree as ET
+from html.parser import HTMLParser
 import time
 import urllib.error
 import urllib.parse
@@ -191,6 +196,210 @@ def meta_search(query):
 
 
 # --------------------------------------------------------------------------
+# AI service (optional): similar books, summaries, book questions
+# --------------------------------------------------------------------------
+
+AI_PROVIDER = ""
+AI_KEY = ""
+AI_MODEL = ""
+
+AI_DEFAULT_MODELS = {
+    "openai": "gpt-4o-mini",
+    "anthropic": "claude-sonnet-4-6",
+    "xai": "grok-4",
+}
+AI_ENDPOINTS = {
+    "openai": "https://api.openai.com/v1/chat/completions",
+    "xai": "https://api.x.ai/v1/chat/completions",
+    "anthropic": "https://api.anthropic.com/v1/messages",
+}
+
+AI_BOOK_CHARS = 250_000          # max characters of book text sent to the model
+_BOOK_TEXT_CACHE = {}            # (book_id, lib, fmt) -> (text, truncated)
+
+
+class _TextExtractor(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.out = []
+        self._skip = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self._skip += 1
+        elif tag in ("p", "div", "br", "h1", "h2", "h3", "h4", "li", "tr"):
+            self.out.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style") and self._skip:
+            self._skip -= 1
+
+    def handle_data(self, data):
+        if not self._skip:
+            self.out.append(data)
+
+
+def extract_epub_text(raw, max_chars):
+    """Extract readable text from an EPUB, following spine order when possible."""
+    zf = zipfile.ZipFile(io.BytesIO(raw))
+    names = []
+    try:  # locate the OPF and read its spine for proper chapter ordering
+        c = ET.fromstring(zf.read("META-INF/container.xml"))
+        opf_path = c.find(".//{urn:oasis:names:tc:opendocument:xmlns:container}rootfile").get("full-path")
+        opf = ET.fromstring(zf.read(opf_path))
+        ns = {"o": "http://www.idpf.org/2007/opf"}
+        manifest = {i.get("id"): i.get("href") for i in opf.findall(".//o:manifest/o:item", ns)}
+        base = opf_path.rsplit("/", 1)[0] + "/" if "/" in opf_path else ""
+        names = [base + manifest[r.get("idref")] for r in opf.findall(".//o:spine/o:itemref", ns)
+                 if r.get("idref") in manifest]
+    except Exception:
+        pass
+    if not names:  # fallback: any html-ish member in archive order
+        names = [n for n in zf.namelist() if n.lower().endswith((".xhtml", ".html", ".htm"))]
+    existing = set(zf.namelist())
+    parts, total, truncated = [], 0, False
+    for n in names:
+        if n not in existing:
+            continue
+        p = _TextExtractor()
+        try:
+            p.feed(zf.read(n).decode("utf-8", "replace"))
+        except Exception:
+            continue
+        t = "\n".join(s for s in ("".join(p.out)).split("\n") if s.strip())
+        if not t:
+            continue
+        parts.append(t)
+        total += len(t)
+        if total >= max_chars:
+            truncated = True
+            break
+    text = "\n\n".join(parts)
+    return text[:max_chars], truncated or len(text) > max_chars
+
+
+def fetch_book_text(book_id, library_id, formats, max_chars):
+    fmts = [f.upper() for f in (formats or [])]
+    fmt = "EPUB" if "EPUB" in fmts else ("TXT" if "TXT" in fmts else None)
+    if not fmt:
+        raise RuntimeError("Sending book text needs an EPUB or TXT format for this book.")
+    key = (str(book_id), library_id, fmt, max_chars)
+    if key in _BOOK_TEXT_CACHE:
+        return _BOOK_TEXT_CACHE[key]
+    url = f"{CALIBRE_URL}/get/{fmt}/{book_id}/{urllib.parse.quote(library_id)}"
+    with OPENER.open(url, timeout=60) as r:
+        raw = r.read()
+    if fmt == "TXT":
+        full = raw.decode("utf-8", "replace")
+        ans = (full[:max_chars], len(full) > max_chars)
+    else:
+        ans = extract_epub_text(raw, max_chars)
+    if len(_BOOK_TEXT_CACHE) >= 3:   # keep memory bounded: a few books at a time
+        _BOOK_TEXT_CACHE.clear()
+    _BOOK_TEXT_CACHE[key] = ans
+    return ans
+
+
+AI_SYSTEM = ("You are a knowledgeable, well-read librarian assisting a reader of a "
+             "personal ebook library. Be concise, concrete, and honest: if you do not "
+             "know the specific book, say so instead of inventing details.")
+
+
+def ai_build_user_prompt(action, book, question):
+    lines = ["Book:"]
+    for label, key in (("Title", "title"), ("Authors", "authors"), ("Series", "series"),
+                       ("Tags", "tags"), ("Publisher", "publisher"), ("Published", "pubdate")):
+        v = book.get(key)
+        if isinstance(v, list):
+            v = ", ".join(str(x) for x in v)
+        if v:
+            lines.append(f"{label}: {v}")
+    desc = (book.get("description") or "").strip()
+    if desc:
+        lines.append("Publisher description: " + desc[:1500])
+    info = "\n".join(lines)
+    body_text = book.get("_text")
+    if body_text:
+        note = (" (TRUNCATED — the ending is missing, say so if the question concerns it)"
+                if book.get("_truncated") else "")
+        info += ("\n\nFULL TEXT OF THE BOOK" + note + ":\n<book>\n" + body_text +
+                 "\n</book>\nBase your answer primarily on this text.")
+
+    if action == "similar":
+        task = ("Recommend 6 to 8 books similar to this one. For each, give exactly one "
+                "line in the form 'Title — Author: short reason it fits'. Prefer variety "
+                "over multiple books by the same author, and do not recommend this book "
+                "itself or other entries of the same series.")
+    elif action == "summary":
+        task = ("Give a spoiler-light overview of this book in two short paragraphs "
+                "(premise and what makes it notable), then list its three main themes. "
+                "If you do not know this specific book, say so and base the overview "
+                "only on the description above.")
+    else:  # question
+        task = ("Answer the reader's question about this specific book. If the answer "
+                "requires plot spoilers, start the line with 'Spoilers:' so the reader "
+                "can stop. Question: " + (question or "").strip()[:500])
+    return info + "\n\n" + task
+
+
+def ai_call(provider, key, model, user_prompt):
+    body_headers = {"Content-Type": "application/json"}
+    if provider == "anthropic":
+        body_headers.update({"x-api-key": key, "anthropic-version": "2023-06-01"})
+        payload = {"model": model, "max_tokens": 1024, "system": AI_SYSTEM,
+                   "messages": [{"role": "user", "content": user_prompt}]}
+    else:  # openai / xai share the chat-completions shape
+        body_headers["Authorization"] = "Bearer " + key
+        payload = {"model": model, "max_tokens": 1024,
+                   "messages": [{"role": "system", "content": AI_SYSTEM},
+                                {"role": "user", "content": user_prompt}]}
+    req = urllib.request.Request(AI_ENDPOINTS[provider],
+                                 data=json.dumps(payload).encode(),
+                                 headers=body_headers, method="POST")
+    with urllib.request.urlopen(req, timeout=180) as r:
+        data = json.loads(r.read().decode("utf-8", "replace"))
+    if provider == "anthropic":
+        return "".join(b.get("text", "") for b in data.get("content", []))
+    return data["choices"][0]["message"]["content"]
+
+
+def ai_handle(body):
+    try:
+        req = json.loads(body or b"{}")
+    except ValueError:
+        return 400, {"error": "Invalid JSON"}
+    action = req.get("action")
+    if action not in ("similar", "summary", "question"):
+        return 400, {"error": "Unknown action"}
+    provider = (req.get("provider") or AI_PROVIDER or "").lower()
+    key = req.get("api_key") or AI_KEY
+    if not provider or not key:
+        return 400, {"error": "AI is not configured. Start server.py with "
+                              "--ai-provider and --ai-key, or set a key in the dialog."}
+    if provider not in AI_ENDPOINTS:
+        return 400, {"error": f"Unknown provider '{provider}'"}
+    model = req.get("model") or AI_MODEL or AI_DEFAULT_MODELS[provider]
+    book = req.get("book") or {}
+    if req.get("include_text") and action in ("summary", "question"):
+        try:
+            max_chars = int(os.environ.get("LUMEN_AI_BOOK_CHARS") or AI_BOOK_CHARS)
+            text, truncated = fetch_book_text(req.get("book_id"), req.get("library_id"),
+                                              req.get("formats"), max_chars)
+            book["_text"], book["_truncated"] = text, truncated
+        except Exception as e:
+            return 400, {"error": f"Couldn't read the book text: {e}"}
+    prompt = ai_build_user_prompt(action, book, req.get("question"))
+    try:
+        text = ai_call(provider, key, model, prompt)
+        return 200, {"text": text, "provider": provider, "model": model}
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")[:400]
+        return 502, {"error": f"{provider} returned {e.code}: {detail}"}
+    except (urllib.error.URLError, OSError) as e:
+        return 502, {"error": f"Could not reach {provider}: {e}"}
+
+
+# --------------------------------------------------------------------------
 # HTTP handler
 # --------------------------------------------------------------------------
 
@@ -219,6 +428,11 @@ class Handler(BaseHTTPRequestHandler):
             self.proxy("GET")
         elif self.path.startswith("/meta/"):
             self.meta()
+        elif self.path == "/ai/config":
+            ans = {"configured": bool(AI_KEY and AI_PROVIDER),
+                   "provider": AI_PROVIDER or None,
+                   "model": AI_MODEL or (AI_DEFAULT_MODELS.get(AI_PROVIDER) if AI_PROVIDER else None)}
+            self.send_body(json.dumps(ans).encode(), "application/json")
         else:
             self.send_error(404, "Not found")
 
@@ -233,11 +447,14 @@ class Handler(BaseHTTPRequestHandler):
     # -------------------- POST -------------------
 
     def do_POST(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        body = self.rfile.read(length) if length else b""
         # Write operations (edit metadata) go through /cdb/.
         if self.path.startswith("/cdb/"):
-            length = int(self.headers.get("Content-Length") or 0)
-            body = self.rfile.read(length) if length else b""
             self.proxy("POST", body)
+        elif self.path == "/ai/ask":
+            code, ans = ai_handle(body)
+            self.send_body(json.dumps(ans).encode(), "application/json", code)
         else:
             self.send_error(404, "Not found")
 
@@ -297,8 +514,31 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404, "Not found")
 
 
+def load_env_file(path):
+    """Minimal .env parser (KEY=VALUE, # comments). Does not override
+    variables already present in the process environment."""
+    try:
+        text = Path(path).read_text()
+    except OSError:
+        return
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        k, v = k.strip(), v.strip()
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+            v = v[1:-1]
+        os.environ.setdefault(k, v)
+
+
+def cfg(cli_value, env_name, default=""):
+    """Config precedence: CLI flag > environment / .env > default."""
+    return cli_value or os.environ.get(env_name, "") or default
+
+
 def main():
-    global CALIBRE_URL, OPENER, GOOGLE_KEY
+    global CALIBRE_URL, OPENER, GOOGLE_KEY, AI_PROVIDER, AI_KEY, AI_MODEL
     p = argparse.ArgumentParser(description="Lumen — modern UI for the Calibre Content Server")
     p.add_argument("--calibre", required=True,
                    help="Base URL of the Calibre Content Server, e.g. http://127.0.0.1:8081")
@@ -308,15 +548,30 @@ def main():
     p.add_argument("--password", help="Calibre content-server password")
     p.add_argument("--google-key", default="",
                    help="Optional Google Books API key (avoids 429 rate limits)")
+    p.add_argument("--ai-provider", default="", choices=["", "openai", "anthropic", "xai"],
+                   help="AI provider for the book assistant (optional)")
+    p.add_argument("--ai-key", default="",
+                   help="API key for the AI provider (prefer LUMEN_AI_KEY in .env — "
+                        "CLI args are visible in `ps` output)")
+    p.add_argument("--ai-model", default="",
+                   help="Override the default model for the chosen provider")
+    p.add_argument("--env-file", default=str(HERE / ".env"),
+                   help="Path to a .env file with secrets (default: .env next to server.py)")
     args = p.parse_args()
+    load_env_file(args.env_file)
 
     CALIBRE_URL = args.calibre.rstrip("/")
-    GOOGLE_KEY = args.google_key
-    if args.user and args.password:
+    GOOGLE_KEY = cfg(args.google_key, "LUMEN_GOOGLE_KEY")
+    AI_PROVIDER = cfg(args.ai_provider, "LUMEN_AI_PROVIDER").lower()
+    AI_KEY = cfg(args.ai_key, "LUMEN_AI_KEY")
+    AI_MODEL = cfg(args.ai_model, "LUMEN_AI_MODEL")
+    user = cfg(args.user or "", "LUMEN_CALIBRE_USER")
+    password = cfg(args.password or "", "LUMEN_CALIBRE_PASSWORD")
+    if user and password:
         # Calibre's content server uses digest auth by default over HTTP
         # and basic auth over HTTPS — register handlers for both.
         pm = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-        pm.add_password(None, CALIBRE_URL, args.user, args.password)
+        pm.add_password(None, CALIBRE_URL, user, password)
         OPENER = urllib.request.build_opener(
             urllib.request.HTTPDigestAuthHandler(pm),
             urllib.request.HTTPBasicAuthHandler(pm),
