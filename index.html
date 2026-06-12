@@ -299,6 +299,9 @@
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
   .chip { font-family: var(--font-mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 3px 9px; }
   .chip.series { color: var(--lamp); border-color: var(--lamp-border); }
+  .chip.genre { color: var(--ok); border-color: var(--ok-border); }
+  button.chip { background: none; cursor: pointer; }
+  button.chip:hover { border-color: var(--lamp); color: var(--lamp); }
   .stars { color: var(--lamp); letter-spacing: 2px; font-size: 14px; }
   #d-rating { font-size: 20px; margin: -4px 0 12px; }
   .dl { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
@@ -665,6 +668,7 @@
         </div>
         <label>Rating <div class="starpick" id="e-rating" title="Click to set, click the same star to clear"></div></label>
         <label>Tags <input type="text" id="e-tags" placeholder="Fiction, Science Fiction"></label>
+        <label id="e-genre-wrap">Genre <input type="text" id="e-genre" placeholder="Thriller, Adventure"></label>
         <label>Ids <input type="text" id="e-ids" placeholder="isbn:9798288453373, google:59500QEACAAJ"></label>
         <div class="frow">
           <label>Date <input type="date" id="e-date"></label>
@@ -747,9 +751,10 @@
 <script>
 (() => {
   const PAGE = 60;
-  // Custom yes/no columns (change if yours are named differently)
+  // Custom columns (change if yours are named differently)
   const READ_COL = "#read";
   const STARTED_COL = "#started";
+  const GENRE_COL = "#genre";   // comma-separated text column
 
   const state = {
     lib: null, query: "", sort: "timestamp", order: "desc",
@@ -763,7 +768,13 @@
   const enc = encodeURIComponent;
 
   const coverStamps = new Map();
-  const cacheKey = id => coverStamps.get(String(id)) || 0;
+  // bust cover caches whenever the book changed anywhere (Lumen OR the
+  // Calibre desktop) — last_modified updates on any edit, covers included
+  const cacheKey = id => {
+    const m = state.books.get(String(id));
+    const lm = m && m.last_modified ? String(m.last_modified).slice(0, 19) : "";
+    return enc(lm + (coverStamps.get(String(id)) || ""));
+  };
   const coverUrl = id => `/get/thumb/${id}/${enc(state.lib)}?sz=320x460&t=${cacheKey(id)}`;
   const bigCover = id => `/get/cover/${id}/${enc(state.lib)}?t=${cacheKey(id)}`;
   const dlUrl = (id, f) => `/get/${f}/${id}/${enc(state.lib)}`;
@@ -809,6 +820,11 @@
   }
   const readFlag = m => boolCol(m, READ_COL);
   const startedFlag = m => boolCol(m, STARTED_COL);
+  function genreList(m) {
+    let v = (GENRE_COL in m) ? m[GENRE_COL]                       // set-fields shape
+      : m.user_metadata?.[GENRE_COL]?.["#value#"];                // ajax shape
+    return Array.isArray(v) ? v : (v ? [String(v)] : []);
+  }
   const undefinedDate = s => !s || s.slice(0, 4) === "0101" || s.slice(0, 4) === "0100";
 
   /* ================= search & grid ================= */
@@ -866,6 +882,10 @@
           // /ajax/books halves ratings to 0-5; normalize to the DB's 0-10
           // scale so all stored books match the /cdb/set-fields shape
           if (typeof m.rating === "number") m.rating *= 2;
+          // user_metadata lists every DEFINED custom column (even empty ones),
+          // unlike /ajax/categories which omits columns with no items yet
+          if (!state.hasGenre && m.user_metadata && GENRE_COL in m.user_metadata)
+            state.hasGenre = true;
           state.books.set(String(id), m);
           frag.appendChild(card(id, m));
         }
@@ -929,6 +949,7 @@
     fh.innerHTML = `Filters <button class="closebtn" title="Close">✕</button>`;
     fh.querySelector("button").addEventListener("click", () => setFacetsOpen(false));
     facets.appendChild(fh);
+    state.hasGenre = false;
     facets.appendChild(statusFacet());
     const sections = [];
     for (const c of cats) {
@@ -936,6 +957,7 @@
       const m = (c.url || "").match(/\/ajax\/category\/([0-9a-fA-F]+)/);
       if (!m) continue;
       const key = hexDecode(m[1]);
+      if (key === GENRE_COL) state.hasGenre = true;
       if (key === READ_COL || key === STARTED_COL) continue;   // covered by Status
       if (!(key in FILTERABLE) && !key.startsWith("#")) continue;
       const sec = facetSection(key, c.name);
@@ -1103,15 +1125,26 @@
     const chips = $("#d-chips");
     chips.innerHTML = "";
     if (m.series) {
-      const c = document.createElement("span");
+      const c = document.createElement("button");
       c.className = "chip series";
+      c.title = `Show all of ${m.series}`;
       c.textContent = `${m.series}${m.series_index ? " · book " + (+m.series_index) : ""}`;
+      c.addEventListener("click", () => { toggleFilter("series", m.series); closeDrawer(); });
       chips.appendChild(c);
     }
     renderDrawerRating(m);
+    for (const g of genreList(m)) {
+      const c = document.createElement("button");
+      c.className = "chip genre"; c.textContent = g;
+      c.title = `Filter by genre ${g}`;
+      c.addEventListener("click", () => { toggleFilter(GENRE_COL, g); closeDrawer(); });
+      chips.appendChild(c);
+    }
     for (const t of (m.tags || []).slice(0, 8)) {
-      const c = document.createElement("span");
+      const c = document.createElement("button");
       c.className = "chip"; c.textContent = t;
+      c.title = `Filter by ${t}`;
+      c.addEventListener("click", () => { toggleFilter("tags", t); closeDrawer(); });
       chips.appendChild(c);
     }
 
@@ -1248,6 +1281,8 @@
     $("#e-series").value = m.series || "";
     $("#e-series-index").value = m.series ? (+m.series_index || 1) : "";
     $("#e-tags").value = (m.tags || []).join(", ");
+    $("#e-genre-wrap").classList.toggle("hidden", !state.hasGenre);
+    $("#e-genre").value = genreList(m).join(", ");
     $("#e-ids").value = idsToString(m.identifiers);
     $("#e-date").value = m.timestamp && !undefinedDate(m.timestamp) ? m.timestamp.slice(0, 10) : "";
     $("#e-pubdate").value = m.pubdate && !undefinedDate(m.pubdate) ? m.pubdate.slice(0, 10) : "";
@@ -1305,6 +1340,8 @@
       authors: $("#e-authors").value.split("&").map(s => s.trim()).filter(Boolean),
       series: series || null,
       tags: $("#e-tags").value.split(",").map(s => s.trim()).filter(Boolean),
+      ...(state.hasGenre ? { [GENRE_COL]:
+        $("#e-genre").value.split(",").map(s => s.trim()).filter(Boolean) } : {}),
       identifiers: parseIds($("#e-ids").value),
       publisher: $("#e-publisher").value.trim() || null,
       languages: $("#e-languages").value.split(",").map(s => s.trim()).filter(Boolean),
@@ -1707,6 +1744,7 @@
 
   function anRender(books) {
     const tags = new Map(), authors = new Map(), formats = new Map(), series = new Set();
+    const genres = new Map();
     let read = 0, started = 0, rated = 0;
     const ratingDist = [0, 0, 0, 0, 0];
     const byMonth = new Map(), byDecade = new Map();
@@ -1714,6 +1752,7 @@
 
     for (const m of books) {
       for (const t of (m.tags || [])) tags.set(t, (tags.get(t) || 0) + 1);
+      for (const g of genreList(m)) genres.set(g, (genres.get(g) || 0) + 1);
       for (const a of (m.authors || [])) authors.set(a, (authors.get(a) || 0) + 1);
       for (const f of (m.formats || [])) {
         const F = f.toUpperCase();
@@ -1758,7 +1797,7 @@
         <div class="an-card"><div class="v">${series.size}</div><div class="l">Series</div></div>
       </div>`;
 
-    const topTags = anTop(tags), topAuthors = anTop(authors);
+    const topTags = anTop(tags), topAuthors = anTop(authors), topGenres = anTop(genres);
     const grid = `<div class="an-grid">` +
       anBox("Reading status", anDonut([
         ["Read", read, statusF("Read", `${READ_COL}:yes`)],
@@ -1769,6 +1808,9 @@
         [f, c, { key: "formats", name: f, q: `formats:"=${f}"` }]))) +
       anBox("Added · last 18 months", anCols(months, 3)) +
       (decades.length ? anBox("Publication decades", anCols(decades)) : "") +
+      (topGenres.length
+        ? anBox("Top genres", `<div class="hb">${anBar(topGenres, topGenres[0]?.[1], GENRE_COL)}</div>`)
+        : "") +
       anBox("Top tags", `<div class="hb">${anBar(topTags, topTags[0]?.[1], "tags")}</div>`) +
       anBox("Top authors", `<div class="hb">${anBar(topAuthors, topAuthors[0]?.[1], "authors")}</div>`) +
       anBox(`Ratings · ${rated} rated, ${books.length - rated} unrated`,
