@@ -773,6 +773,9 @@
         for (const id of ids) {
           const m = meta[id];
           if (!m) continue;
+          // /ajax/books halves ratings to 0-5; normalize to the DB's 0-10
+          // scale so all stored books match the /cdb/set-fields shape
+          if (typeof m.rating === "number") m.rating *= 2;
           state.books.set(String(id), m);
           frag.appendChild(card(id, m));
         }
@@ -975,7 +978,8 @@
 
   /* ================= drawer (view) ================= */
 
-  // calibre stores ratings 0-10 (half-stars); both API shapes return it raw
+  // internal canonical rating scale is the DB's 0-10 (ajax responses are
+  // normalized to it at ingestion); display = value / 2 stars
   const ratingStars = m => Math.max(0, Math.min(5, Math.round((+m.rating || 0) / 2)));
   const idsToString = ids => Object.entries(ids || {}).map(([k, v]) => `${k}:${v}`).join(", ");
   function langNames(m) {
@@ -1148,7 +1152,7 @@
     const m = state.books.get(state.current);
     if (!m) return;
     $("#e-title").value = m.title || "";
-    $("#e-title-sort").value = m.sort || "";
+    $("#e-title-sort").value = m.title_sort || m.sort || "";
     $("#e-authors").value = (m.authors || []).join(" & ");
     $("#e-author-sort").value = m.author_sort || "";
     $("#e-series").value = m.series || "";
@@ -1208,9 +1212,7 @@
     const series = $("#e-series").value.trim();
     const changes = {
       title: $("#e-title").value.trim() || "Untitled",
-      sort: $("#e-title-sort").value.trim() || null,
       authors: $("#e-authors").value.split("&").map(s => s.trim()).filter(Boolean),
-      author_sort: $("#e-author-sort").value.trim() || null,
       series: series || null,
       tags: $("#e-tags").value.split(",").map(s => s.trim()).filter(Boolean),
       identifiers: parseIds($("#e-ids").value),
@@ -1220,6 +1222,12 @@
       comments: $("#e-comments").value.trim() || null,
     };
     if (series) changes.series_index = +$("#e-series-index").value || 1;
+    // sorts: only send when non-empty — sending null would CLEAR them in
+    // calibre; left empty, calibre keeps/auto-computes them from title/authors
+    const tsort = $("#e-title-sort").value.trim();
+    const asort = $("#e-author-sort").value.trim();
+    if (tsort) changes.sort = tsort;
+    if (asort) changes.author_sort = asort;
     const d = $("#e-date").value, pd = $("#e-pubdate").value;
     if (d) changes.timestamp = d;
     if (pd) changes.pubdate = pd;
