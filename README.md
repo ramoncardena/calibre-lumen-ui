@@ -2,7 +2,7 @@
 
 **[Lumen Website](https://ramoncardena.github.io/calibre-lumen-ui/)**
 
-A modern, dark, single-page web UI for the [Calibre Content Server](https://manual.calibre-ebook.com/server.html).
+A modern, themeable, single-page web UI for the [Calibre Content Server](https://manual.calibre-ebook.com/server.html).
 Lumen talks to your existing Calibre library through its built-in API — nothing is
 imported, converted, or duplicated, and the desktop GUI, OPDS feeds, and your
 e-reader keep working against the same database.
@@ -35,6 +35,9 @@ Two files, zero dependencies (Python 3.8+ standard library only):
 - Optional AI assistant per book: similar titles, summary, and questions
   (OpenAI / Anthropic / xAI, bring your own key) — optionally grounded in the
   actual book by sending its EPUB/TXT text to the model
+- Eight selectable themes — four dark (Lamplight, Midnight, Forest, Plum) and
+  four light (Paper, Linen, Sakura, Dune) — picked from the header and saved
+  per browser
 
 ## Quick start
 
@@ -121,6 +124,16 @@ Status tracking expects two yes/no custom columns in Calibre, lookup names
 `#read` and `#started` (*Preferences → Add your own columns*). Different
 names? Change the `READ_COL` / `STARTED_COL` constants at the top of the
 script in `index.html`.
+
+## Themes
+
+The header's theme button opens a swatch picker with eight themes. The choice
+is stored in that browser's localStorage, so each device keeps its own, and
+it's applied before first paint (no flash on load).
+
+Every color in the UI is a CSS variable, so adding your own theme is a small
+block in `index.html` — copy any `html[data-theme="..."]` block, change the
+values, and add an entry to the `THEMES` array in the script.
 
 ## Run as a service
 
