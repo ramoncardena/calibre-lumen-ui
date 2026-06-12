@@ -431,6 +431,9 @@
   }
   #ai-out:empty::before { content: "Pick an action above, or ask a question about this book."; color: var(--muted); }
   #ai-out strong { color: var(--text); }
+  #ai-out a.rec { color: var(--lamp); font-weight: 600; text-decoration: none; border-bottom: 1px solid var(--lamp-border); }
+  #ai-out a.rec:hover { border-bottom-color: var(--lamp); }
+  #ai-out a.rec::after { content: " ↗"; font-size: 11px; opacity: .7; }
   #ai-out .src { display: block; margin-top: 10px; font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
   #ai-settings summary { cursor: pointer; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
   #ai-settings[open] summary { color: var(--text); }
@@ -1442,6 +1445,33 @@
     });
   }
 
+  // where recommendation links point; swap host to taste (e.g. openlibrary.org/search?q=)
+  const recLink = q => "https://www.goodreads.com/search?q=" + encodeURIComponent(q);
+
+  function renderSimilar(text) {
+    const out = [];
+    for (let line of text.split("\n")) {
+      const clean = line.replace(/\*\*/g, "")
+        .replace(/^[\s•*-]+/, "")
+        .replace(/^\d+\s*[.)]\s*/, "")   // strip "1. " / "2) " numbering
+        .trim();
+      // Title — Author: reason   (also tolerate "-"/"–" and "by Author:")
+      const m = clean.match(/^(.{2,120}?)\s+(?:[—–-]{1,2}|by)\s+([^:]{2,80}):\s*(.*)$/);
+      if (m) {
+        const [, title, author, reason] = m;
+        const a = document.createElement("a");
+        a.className = "rec";
+        a.href = recLink(title);   // title-only searches match best on Goodreads
+        a.target = "_blank"; a.rel = "noopener";
+        a.textContent = `${title} — ${author}`;
+        out.push(a.outerHTML + ": " + escapeHtml(reason));
+      } else if (clean) {
+        out.push(aiRender(clean));
+      }
+    }
+    return out.join("<br>");
+  }
+
   // very small markdown-ish renderer (bold, headers->bold, bullets), HTML-escaped first
   function aiRender(text) {
     let h = escapeHtml(text);
@@ -1496,7 +1526,7 @@
           : `Unexpected non-JSON response (${r.status}) from the server.`);
       }
       if (!r.ok || data.error) throw new Error(data.error || r.statusText);
-      out.innerHTML = aiRender(data.text) +
+      out.innerHTML = (action === "similar" ? renderSimilar(data.text) : aiRender(data.text)) +
         `<span class="src">${escapeHtml(data.provider)} · ${escapeHtml(data.model)}</span>`;
     } catch (e) {
       out.innerHTML = `<span style="color:var(--danger)">${escapeHtml(e.message)}</span>`;

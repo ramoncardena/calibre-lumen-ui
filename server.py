@@ -327,9 +327,10 @@ def ai_build_user_prompt(action, book, question):
 
     if action == "similar":
         task = ("Recommend 6 to 8 books similar to this one. For each, give exactly one "
-                "line in the form 'Title — Author: short reason it fits'. Prefer variety "
-                "over multiple books by the same author, and do not recommend this book "
-                "itself or other entries of the same series.")
+                "line in the exact format 'Title — Author: short reason it fits' (em dash "
+                "between title and author, colon after the author, no numbering, no bold). "
+                "Prefer variety over multiple books by the same author, and do not "
+                "recommend this book itself or other entries of the same series.")
     elif action == "summary":
         task = ("Give a spoiler-light overview of this book in two short paragraphs "
                 "(premise and what makes it notable), then list its three main themes. "
