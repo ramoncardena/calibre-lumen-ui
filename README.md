@@ -38,6 +38,10 @@ Two files, zero dependencies (Python 3.8+ standard library only):
 - Eight selectable themes — four dark (Lamplight, Midnight, Forest, Plum) and
   four light (Paper, Linen, Sakura, Dune) — picked from the header and saved
   per browser
+- Analytics dashboard: reading status, formats, books added per month,
+  publication decades, top tags/authors, and rating distribution — every
+  chart is clickable and filters the library to what you tapped
+- Cover-size slider in the header, remembered per browser
 
 ## Quick start
 
@@ -85,8 +89,8 @@ stay read-only. Run it on a trusted network.
 ## AI assistant (optional)
 
 The book details panel has an AI button offering three book-scoped actions:
-similar-book recommendations, a spoiler-light summary, and free-form questions
-about the book. Supported providers: OpenAI, Anthropic, and xAI — bring your
+similar-book recommendations (each linked to a Goodreads search), a
+spoiler-light summary, and free-form questions about the book. Supported providers: OpenAI, Anthropic, and xAI — bring your
 own API key.
 
 By default the model only sees the book's metadata. Ticking **"Send the book

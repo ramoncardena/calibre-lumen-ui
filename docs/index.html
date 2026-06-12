@@ -192,8 +192,19 @@
   .closer { padding: 86px 0 10px; }
   .closer h2 { font-family: var(--font-display); font-weight: 640; font-size: clamp(26px, 4vw, 36px); margin: 0 0 6px; text-align: center; }
   .closer > .wrap > p { color: var(--muted); text-align: center; margin: 0 0 34px; }
-  .gallery { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 16px; align-items: start; }
-  @media (max-width: 860px) { .gallery { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto; } }
+  .gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; max-width: 880px; margin: 0 auto; }
+  @media (max-width: 860px) { .gallery { grid-template-columns: 1fr; max-width: 440px; } }
+  /* analytics panel */
+  .ap .dn { width: 86px; height: 86px; border-radius: 50%; position: relative; flex: none;
+    background: conic-gradient(var(--lamp) 0 38%, var(--ok) 38% 45%, var(--raise) 45% 100%); }
+  .ap .dn::after { content: ""; position: absolute; inset: 27%; background: var(--deep); border-radius: 50%; }
+  .ap .top { display: flex; gap: 16px; align-items: center; margin-bottom: 12px; }
+  .ap .lg { font-size: 11px; color: var(--muted); display: grid; gap: 4px; }
+  .ap .lg i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; font-style: normal; }
+  .ap .hb { display: grid; grid-template-columns: 70px 1fr 22px; gap: 5px 9px; align-items: center; font-size: 10.5px; }
+  .ap .hb .tk { height: 7px; background: var(--raise); border-radius: 99px; overflow: hidden; }
+  .ap .hb .tk i { display: block; height: 100%; background: var(--lamp); border-radius: 99px; }
+  .ap .hb .ct { font-family: var(--font-mono); font-size: 9px; color: var(--muted); text-align: right; }
   .panel {
     background: var(--deep); border: 1px solid var(--line); border-radius: 12px;
     padding: 16px; box-shadow: 0 24px 50px -24px rgba(0,0,0,.75);
@@ -389,6 +400,8 @@
       <div class="card"><span class="glyph">⇣</span><h3>Fetch metadata</h3><p>Pull title, description, identifiers, and covers from Google Books and Open Library. Inspect every candidate before applying it.</p></div>
       <div class="card"><span class="glyph">⇩</span><h3>Download anywhere</h3><p>Every format of every book, one click away, from any device on your network — phone, tablet, or the browser on your e-reader.</p></div>
       <div class="card"><span class="glyph">◷</span><h3>Stays in sync</h3><p>Lumen writes through the Calibre Content Server API. The desktop app, OPDS feeds, and your reader always see the same library.</p></div>
+      <div class="card"><span class="glyph">◔</span><h3>Library analytics</h3><p>Reading status, formats, acquisition timeline, publication decades, top tags and authors, ratings — and every chart is clickable, filtering the shelf to what you tapped.</p></div>
+      <div class="card"><span class="glyph">◑</span><h3>Make it yours</h3><p>Eight themes — four dark, four light — picked from the header and remembered per device, plus a slider for exactly how big you like your covers.</p></div>
     </div>
   </div>
 </section>
@@ -451,6 +464,25 @@
           <div class="foot"><span class="b">⇣ Download metadata</span><span class="b go">Save changes</span></div>
         </div>
         <div class="cap" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:12px;text-align:center">The full Calibre field set</div>
+      </div>
+
+      <div>
+        <div class="panel ap" role="img" aria-label="The analytics dashboard with a reading-status donut and top tags">
+          <div class="top">
+            <div class="dn"></div>
+            <div class="lg">
+              <span><i style="background:var(--lamp)"></i>Read · 41</span>
+              <span><i style="background:var(--ok)"></i>In progress · 7</span>
+              <span><i style="background:var(--raise)"></i>Not started · 62</span>
+            </div>
+          </div>
+          <div class="hb">
+            <span>scifi</span><span class="tk"><i style="width:100%"></i></span><span class="ct">38</span>
+            <span>essays</span><span class="tk"><i style="width:32%"></i></span><span class="ct">12</span>
+            <span>first contact</span><span class="tk"><i style="width:24%"></i></span><span class="ct">9</span>
+          </div>
+        </div>
+        <div class="cap" style="font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:12px;text-align:center">Charts that filter when clicked</div>
       </div>
 
     </div>
