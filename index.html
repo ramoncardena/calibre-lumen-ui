@@ -215,7 +215,7 @@
   /* ---------- grid ---------- */
   #grid {
     display: grid; gap: 26px 20px;
-    grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--cover-min, 156px), 1fr));
     align-items: start;  /* buttons center their content when stretched, skewing rows with 2-line titles */
   }
   .book { cursor: pointer; border: 0; background: none; padding: 0; text-align: left; color: inherit; display: block; width: 100%; }
@@ -449,6 +449,78 @@
   .ai-include.unavailable { opacity: .45; cursor: default; }
   @media (max-width: 600px) { #ai-settings .grid { grid-template-columns: 1fr; } }
 
+  /* ---------- analytics ---------- */
+  #an-scrim {
+    position: fixed; inset: 0; z-index: 44; background: var(--scrim);
+    opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  #an-scrim.open { opacity: 1; pointer-events: auto; }
+  #an-modal {
+    position: fixed; z-index: 45; inset: 0; margin: auto;
+    width: min(1080px, 96vw); height: min(92vh, 860px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    display: none; flex-direction: column;
+  }
+  #an-modal.open { display: flex; }
+  #an-modal .m-head { padding: 18px 24px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+  #an-modal .m-head h2 { font-family: var(--font-display); font-weight: 640; font-size: 21px; margin: 0; }
+  #an-modal .m-body { overflow-y: auto; padding: 22px 24px; min-height: 0; }
+  .an-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  @media (max-width: 700px) { .an-cards { grid-template-columns: 1fr 1fr; } }
+  .an-card { background: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .an-card .v { font-family: var(--font-display); font-weight: 640; font-size: 28px; line-height: 1.1; }
+  .an-card .v small { font-size: 15px; color: var(--muted); font-family: var(--font-body); }
+  .an-card .l { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+  .an-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 760px) { .an-grid { grid-template-columns: 1fr; } }
+  .an-box { background: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .an-box h3 { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; font-weight: 500; }
+  /* horizontal bars (class deliberately NOT ".bar" — that's the header) */
+  .hb { display: grid; gap: 6px; font-size: 12.5px; }
+  .hb .row {
+    display: grid; grid-template-columns: minmax(80px, 38%) 1fr 34px; gap: 10px;
+    align-items: center; background: none; border: 0; padding: 1px 0;
+    font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: 6px;
+  }
+  .hb .row:hover .n { color: var(--lamp); }
+  .hb .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .hb .hbar { height: 9px; background: var(--raise); border-radius: 99px; overflow: hidden; }
+  .hb .hbar i { display: block; height: 100%; background: var(--lamp); border-radius: 99px; }
+  .hb .c { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); text-align: right; }
+  /* columns */
+  .cols { display: flex; gap: 4px; align-items: flex-end; height: 130px; }
+  .cols .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; min-width: 0; }
+  .cols .col i { display: block; background: var(--lamp); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .cols .col i.dim { background: var(--raise); }
+  .colx { display: flex; gap: 4px; margin-top: 6px; }
+  .colx span { flex: 1; font-family: var(--font-mono); font-size: 8.5px; color: var(--muted); text-align: center; overflow: hidden; white-space: nowrap; }
+  /* donut */
+  .donut-wrap { display: flex; gap: 18px; align-items: center; }
+  .donut { width: 120px; height: 120px; border-radius: 50%; flex: none; position: relative; }
+  .donut::after { content: ""; position: absolute; inset: 26%; background: var(--ink); border-radius: 50%; }
+  .legend { display: grid; gap: 6px; font-size: 12.5px; }
+  .legend .li { display: flex; align-items: center; gap: 8px; }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .legend .lc { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin-left: auto; }
+  button.li, button.col {
+    background: none; border: 0; padding: 0; margin: 0;
+    font: inherit; color: inherit; cursor: pointer;
+  }
+  button.li:hover { color: var(--lamp); }
+  button.col:hover i:not(.dim) { filter: brightness(1.3); }
+  .an-loading { padding: 60px 0; text-align: center; color: var(--muted); }
+  .zoom { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+  .zoom .sm, .zoom .lg { border: 1.5px solid currentColor; border-radius: 2px; opacity: .75; }
+  .zoom .sm { width: 8px; height: 11px; }
+  .zoom .lg { width: 12px; height: 16px; }
+  .zoom input { width: 92px; accent-color: var(--lamp); cursor: pointer; }
+  @media (max-width: 700px) { .zoom { display: none; } }
+  #an-btn {
+    width: 38px; height: 38px; padding: 0; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
   /* ---------- toasts ---------- */
   #toasts { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; display: grid; gap: 8px; }
   .toast {
@@ -508,6 +580,12 @@
         <input id="q" type="search" placeholder="Search title, author, tags…" autocomplete="off">
         <kbd>/</kbd>
       </div>
+      <div class="zoom" title="Cover size">
+        <span class="sm"></span>
+        <input id="zoom" type="range" min="110" max="280" step="10" aria-label="Cover size">
+        <span class="lg"></span>
+      </div>
+      <button id="an-btn" class="btn" title="Library analytics">📊</button>
       <div class="theme-wrap">
         <button id="theme-btn" title="Theme"><span class="dot"></span></button>
         <div id="theme-pop" role="menu" aria-label="Choose a theme"></div>
@@ -616,6 +694,15 @@
     <button class="btn" id="e-cancel">Cancel</button>
     <button class="btn primary" id="e-save">Save changes</button>
   </div>
+</div>
+
+<div id="an-scrim"></div>
+<div id="an-modal" role="dialog" aria-modal="true" aria-label="Library analytics">
+  <div class="m-head">
+    <h2>Library analytics</h2>
+    <button class="closebtn" id="an-close" title="Close" style="position:static;margin-left:auto">✕</button>
+  </div>
+  <div class="m-body" id="an-body"></div>
 </div>
 
 <div id="ai-scrim"></div>
@@ -1121,7 +1208,7 @@
     });
   }
 
-  function applyUpdate(id, updated) {
+  let applyUpdate = function (id, updated) {
     if (!updated) return;
     state.books.set(String(id), updated);
     const old = grid.querySelector(`.book[data-id="${id}"]`);
@@ -1132,7 +1219,7 @@
     // enters/leaves the grid accordingly
     refreshStatusCounts();
     if (state.filters.length || state.query.trim()) reset();
-  }
+  };
 
   /* ================= edit modal ================= */
 
@@ -1546,6 +1633,204 @@
     if (e.key === "Enter") { e.preventDefault(); $("#ai-ask-btn").click(); }
   });
 
+  /* ================= analytics ================= */
+
+  let anCache = null;
+  const AN_COLORS = ["var(--lamp)", "var(--ok)", "#7fa7e8", "#c490ee", "#d96a5b", "var(--muted)"];
+
+  async function anFetchAll() {
+    const s = await api(`/ajax/search?library_id=${enc(state.lib)}&num=100000&offset=0&sort=timestamp&sort_order=desc&query=`);
+    const ids = s.book_ids || [];
+    const books = [];
+    for (let i = 0; i < ids.length; i += 150) {
+      const chunk = ids.slice(i, i + 150);
+      const meta = await api(`/ajax/books?library_id=${enc(state.lib)}&ids=${chunk.join(",")}`);
+      for (const id of chunk) {
+        const m = meta[id];
+        if (!m) continue;
+        if (typeof m.rating === "number") m.rating *= 2;   // ajax 0-5 -> canon 0-10
+        books.push(m);
+      }
+    }
+    return books;
+  }
+
+  const anBar = (entries, max, key) => entries.map(([n, c]) =>
+    `<button class="row" data-fkey="${key}" data-fname="${escapeHtml(n)}" title="Filter library by ${escapeHtml(n)}">
+       <span class="n">${escapeHtml(n)}</span>
+       <span class="hbar"><i style="width:${max ? (c / max * 100).toFixed(1) : 0}%"></i></span>
+       <span class="c">${c}</span>
+     </button>`).join("");
+
+  function anBox(title, inner) {
+    return `<div class="an-box"><h3>${escapeHtml(title)}</h3>${inner}</div>`;
+  }
+
+  const fAttrs = f => f
+    ? (f.pair ? ` data-fpair="${f.pair}"` : ` data-fkey="${f.key}"`) +
+      ` data-fname="${escapeHtml(f.name)}" data-fq="${escapeHtml(f.q)}"`
+    : "";
+
+  function anCols(entries, labelEvery = 1) {
+    const max = Math.max(1, ...entries.map(e => e[1]));
+    const bars = entries.map(([l, c, f]) => {
+      const tag = f ? "button" : "div";
+      return `<${tag} class="col"${fAttrs(f)} title="${escapeHtml(l)}: ${c}${f ? " — click to filter" : ""}">` +
+             `<i class="${c ? "" : "dim"}" style="height:${Math.max(2, c / max * 100)}%"></i></${tag}>`;
+    }).join("");
+    const labels = entries.map(([l], i) =>
+      `<span>${i % labelEvery === 0 ? escapeHtml(l) : ""}</span>`).join("");
+    return `<div class="cols">${bars}</div><div class="colx">${labels}</div>`;
+  }
+
+  function anDonut(slices) {  // [[label, count], ...]
+    const total = slices.reduce((a, s) => a + s[1], 0) || 1;
+    let acc = 0;
+    const stops = slices.map((s, i) => {
+      const from = acc / total * 100; acc += s[1];
+      const to = acc / total * 100;
+      return `${AN_COLORS[i % AN_COLORS.length]} ${from.toFixed(2)}% ${to.toFixed(2)}%`;
+    }).join(", ");
+    const legend = slices.map((s, i) => {
+      const f = s[2], tag = f ? "button" : "div";
+      return `<${tag} class="li"${fAttrs(f)}${f ? ` title="Click to filter"` : ""}>` +
+        `<span class="sw" style="background:${AN_COLORS[i % AN_COLORS.length]}"></span>` +
+        `${escapeHtml(s[0])} <span class="lc">${s[1]} · ${(s[1] / total * 100).toFixed(0)}%</span></${tag}>`;
+    }).join("");
+    return `<div class="donut-wrap"><div class="donut" style="background:conic-gradient(${stops})"></div>
+            <div class="legend">${legend}</div></div>`;
+  }
+
+  function anTop(counter, n = 10) {
+    return [...counter.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
+  }
+
+  function anRender(books) {
+    const tags = new Map(), authors = new Map(), formats = new Map(), series = new Set();
+    let read = 0, started = 0, rated = 0;
+    const ratingDist = [0, 0, 0, 0, 0];
+    const byMonth = new Map(), byDecade = new Map();
+    const now = new Date();
+
+    for (const m of books) {
+      for (const t of (m.tags || [])) tags.set(t, (tags.get(t) || 0) + 1);
+      for (const a of (m.authors || [])) authors.set(a, (authors.get(a) || 0) + 1);
+      for (const f of (m.formats || [])) {
+        const F = f.toUpperCase();
+        formats.set(F, (formats.get(F) || 0) + 1);
+      }
+      if (m.series) series.add(m.series);
+      if (readFlag(m)) read++;
+      else if (startedFlag(m)) started++;
+      const rs = ratingStars(m);
+      if (rs) { rated++; ratingDist[rs - 1]++; }
+      if (m.timestamp) byMonth.set(m.timestamp.slice(0, 7), (byMonth.get(m.timestamp.slice(0, 7)) || 0) + 1);
+      if (m.pubdate && !undefinedDate(m.pubdate)) {
+        const y = +m.pubdate.slice(0, 4);
+        if (Number.isFinite(y) && y > 0) {
+          const d = Math.floor(y / 10) * 10;
+          byDecade.set(d, (byDecade.get(d) || 0) + 1);
+        }
+      }
+    }
+
+    // last 18 months, empty months included
+    const months = [];
+    for (let i = 17; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      const nk = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+      months.push([k.slice(2), byMonth.get(k) || 0,
+        { key: "date", name: k, q: `(date:>=${k}-01 and date:<${nk}-01)` }]);
+    }
+    const decades = [...byDecade.entries()].sort((a, b) => a[0] - b[0])
+      .map(([d, c]) => [`${d}s`, c,
+        { key: "pubdate", name: `${d}s`, q: `(pubdate:>=${d}-01-01 and pubdate:<=${d + 9}-12-31)` }]);
+    const unread = books.length - read - started;
+    const statusF = (name, q) => ({ pair: "_status", name, q });
+
+    const cards = `
+      <div class="an-cards">
+        <div class="an-card"><div class="v">${books.length}</div><div class="l">Books</div></div>
+        <div class="an-card"><div class="v">${authors.size}</div><div class="l">Authors</div></div>
+        <div class="an-card"><div class="v">${books.length ? Math.round(read / books.length * 100) : 0}<small>%</small></div><div class="l">Read</div></div>
+        <div class="an-card"><div class="v">${series.size}</div><div class="l">Series</div></div>
+      </div>`;
+
+    const topTags = anTop(tags), topAuthors = anTop(authors);
+    const grid = `<div class="an-grid">` +
+      anBox("Reading status", anDonut([
+        ["Read", read, statusF("Read", `${READ_COL}:yes`)],
+        ["In progress", started, statusF("In progress", `${STARTED_COL}:yes`)],
+        ["Not started", unread, statusF("Not started", `(not ${READ_COL}:yes and not ${STARTED_COL}:yes)`)],
+      ])) +
+      anBox("Formats", anDonut(anTop(formats, 5).map(([f, c]) =>
+        [f, c, { key: "formats", name: f, q: `formats:"=${f}"` }]))) +
+      anBox("Added · last 18 months", anCols(months, 3)) +
+      (decades.length ? anBox("Publication decades", anCols(decades)) : "") +
+      anBox("Top tags", `<div class="hb">${anBar(topTags, topTags[0]?.[1], "tags")}</div>`) +
+      anBox("Top authors", `<div class="hb">${anBar(topAuthors, topAuthors[0]?.[1], "authors")}</div>`) +
+      anBox(`Ratings · ${rated} rated, ${books.length - rated} unrated`,
+        anCols([1, 2, 3, 4, 5].map(i =>
+          [`${i}★`, ratingDist[i - 1], { key: "rating", name: `${i}★`, q: `rating:${i}` }]))) +
+      `</div>`;
+
+    $("#an-body").innerHTML = cards + grid;
+  }
+
+  async function openAnalytics() {
+    $("#an-modal").classList.add("open");
+    $("#an-scrim").classList.add("open");
+    if (anCache) { anRender(anCache); return; }
+    $("#an-body").innerHTML = `<div class="an-loading">Reading the whole library…</div>`;
+    try {
+      anCache = await anFetchAll();
+      anRender(anCache);
+    } catch (e) {
+      $("#an-body").innerHTML = `<div class="an-loading" style="color:var(--danger)">${escapeHtml(e.message)}</div>`;
+    }
+  }
+  function closeAnalytics() {
+    $("#an-modal").classList.remove("open");
+    $("#an-scrim").classList.remove("open");
+  }
+  $("#an-body").addEventListener("click", e => {
+    const el = e.target.closest("[data-fkey],[data-fpair]");
+    if (!el) return;
+    const { fkey, fpair, fname, fq } = el.dataset;
+    if (fpair) {
+      // status slice: replace within the exclusive status group
+      const cur = state.filters.find(f => f.key === fpair);
+      if (!cur || cur.name !== fname) toggleStatus({ pair: fpair, name: fname, q: fq });
+    } else if (!state.filters.some(f => f.key === fkey && f.name === fname)) {
+      toggleFilter(fkey, fname, fq || undefined);   // adds filter, refreshes grid + chips
+    }
+    closeAnalytics();
+  });
+  $("#an-btn").addEventListener("click", openAnalytics);
+  $("#an-close").addEventListener("click", closeAnalytics);
+  $("#an-scrim").addEventListener("click", closeAnalytics);
+  // a write may change status/ratings: drop the cache so next open recomputes
+  const _applyUpdate = applyUpdate;
+  applyUpdate = function (id, updated) { anCache = null; _applyUpdate(id, updated); };
+
+  /* ================= cover zoom ================= */
+
+  {
+    const z = $("#zoom");
+    const apply = v => document.documentElement.style.setProperty("--cover-min", v + "px");
+    let saved = 156;
+    try { saved = parseInt(localStorage.getItem("lumen.zoom")) || 156; } catch {}
+    saved = Math.min(280, Math.max(110, saved));
+    z.value = saved;
+    apply(saved);
+    z.addEventListener("input", () => {
+      apply(z.value);
+      try { localStorage.setItem("lumen.zoom", z.value); } catch {}
+    });
+  }
+
   /* ================= theme picker ================= */
 
   const THEMES = [
@@ -1614,7 +1899,8 @@
   });
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
-      if ($("#ai-modal").classList.contains("open")) closeAiModal();
+      if ($("#an-modal").classList.contains("open")) closeAnalytics();
+      else if ($("#ai-modal").classList.contains("open")) closeAiModal();
       else if ($("#modal").classList.contains("open")) closeModal();
       else { closeDrawer(); setFacetsOpen(false); }
     }
