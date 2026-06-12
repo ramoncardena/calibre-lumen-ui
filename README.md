@@ -23,7 +23,8 @@ Two files, zero dependencies (Python 3.8+ standard library only):
 - Filter sidebar like Calibre's tag browser: Authors, Series, Tags, Publisher,
   Languages, Rating, custom columns — with item counts, stacking filters, and a
   pinned Status selector (Read / In progress / Not started)
-- Book drawer with downloads per format and one-tap read / in-progress toggles
+- Book drawer with downloads per format and one-tap read / in-progress
+  toggles; series, genre, and tag chips filter the library when clicked
 - Metadata editing in a centered dialog with the full Calibre field set:
   title + sort, authors + sort, series + number, rating, tags, identifiers,
   date, published, publisher, languages, comments, cover replacement
@@ -42,6 +43,8 @@ Two files, zero dependencies (Python 3.8+ standard library only):
   publication decades, top tags/authors, and rating distribution — every
   chart is clickable and filters the library to what you tapped
 - Cover-size slider in the header, remembered per browser
+- Optional genre support through a `#genre` custom column: a sidebar section,
+  chips in the book panel, an edit field, and a Top genres chart in analytics
 
 ## Quick start
 
@@ -122,12 +125,18 @@ book's extracted text are sent to the chosen AI provider. Nothing
 else from the library leaves the server, and nothing is sent until an action
 is clicked.
 
-## Reading status columns
+## Custom columns: reading status and genre
 
 Status tracking expects two yes/no custom columns in Calibre, lookup names
 `#read` and `#started` (*Preferences → Add your own columns*). Different
 names? Change the `READ_COL` / `STARTED_COL` constants at the top of the
 script in `index.html`.
+
+Genre support is optional. Create a custom column of type **"Comma separated
+text, like tags"** with lookup name `genre`, then reload Lumen. The sidebar
+section, book-panel chips, edit field, and analytics chart all appear
+automatically once the column exists; until then Lumen behaves as before.
+A different lookup name goes in the `GENRE_COL` constant.
 
 ## Themes
 
