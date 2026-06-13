@@ -358,6 +358,14 @@
     display: grid; gap: 4px; font-family: var(--font-mono); font-size: 10.5px;
     text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
   }
+  .lbl-row { display: flex; align-items: center; gap: 10px; }
+  .gengen {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .04em;
+    text-transform: none; color: var(--lamp); background: var(--lamp-dim);
+    border: 1px solid var(--lamp-border); border-radius: 99px; padding: 2px 9px; cursor: pointer;
+  }
+  .gengen:hover { background: var(--lamp); color: var(--ink); }
+  .gengen:disabled { opacity: .55; cursor: default; }
   .m-fields input, .m-fields textarea, .fetch-panel input {
     background: var(--ink); border: 1px solid var(--line); border-radius: 8px;
     color: var(--text); padding: 8px 11px; font: inherit; font-size: 14px; outline: none;
@@ -667,7 +675,12 @@
           <label>Number <input type="number" id="e-series-index" step="0.1" min="0"></label>
         </div>
         <label>Rating <div class="starpick" id="e-rating" title="Click to set, click the same star to clear"></div></label>
-        <label>Tags <input type="text" id="e-tags" placeholder="Fiction, Science Fiction"></label>
+        <label>
+          <span class="lbl-row">Tags
+            <button type="button" class="gengen" id="gen-classify" title="Generate genre and tags with AI">✨ Generate</button>
+          </span>
+          <input type="text" id="e-tags" placeholder="Fiction, Science Fiction">
+        </label>
         <label id="e-genre-wrap">Genre <input type="text" id="e-genre" placeholder="Thriller, Adventure"></label>
         <label>Ids <input type="text" id="e-ids" placeholder="isbn:9798288453373, google:59500QEACAAJ"></label>
         <div class="frow">
@@ -1254,6 +1267,43 @@
     if (state.filters.length || state.query.trim()) reset();
   };
 
+  /* ================= AI classify (genre + tags) ================= */
+
+  async function generateGenreTags() {
+    const id = state.current;
+    const m = state.books.get(String(id));
+    if (!m) return;
+    const btn = $("#gen-classify");
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = "✨ Thinking…";
+    try {
+      const local = aiStore.get();
+      const r = await fetch("/ai/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "classify",
+          book: aiBookPayload(),
+          provider: local.provider || undefined,
+          api_key: local.key || undefined,
+          model: local.model || undefined,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Request failed");
+      if (data.genre && state.hasGenre) $("#e-genre").value = data.genre;
+      if (data.tags) $("#e-tags").value = data.tags;
+      if (!data.genre && !data.tags) toast("The model didn't return usable genres or tags.", "err");
+      else toast(state.hasGenre ? "Generated genre and tags — review, then Save."
+                                : "Generated tags — review, then Save.", "ok");
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      btn.disabled = false; btn.textContent = orig;
+    }
+  }
+  $("#gen-classify").addEventListener("click", generateGenreTags);
+
   /* ================= edit modal ================= */
 
   let editRating = 0;
@@ -1283,6 +1333,8 @@
     $("#e-tags").value = (m.tags || []).join(", ");
     $("#e-genre-wrap").classList.toggle("hidden", !state.hasGenre);
     $("#e-genre").value = genreList(m).join(", ");
+    $("#gen-classify").title = state.hasGenre
+      ? "Generate genre and tags with AI" : "Generate tags with AI";
     $("#e-ids").value = idsToString(m.identifiers);
     $("#e-date").value = m.timestamp && !undefinedDate(m.timestamp) ? m.timestamp.slice(0, 10) : "";
     $("#e-pubdate").value = m.pubdate && !undefinedDate(m.pubdate) ? m.pubdate.slice(0, 10) : "";
