@@ -257,8 +257,8 @@
   .ai .head { text-align: center; max-width: 640px; margin: 0 auto 38px; }
   .ai h2 { font-family: var(--font-display); font-weight: 640; font-size: clamp(26px, 4vw, 38px); margin: 0 0 12px; line-height: 1.18; }
   .ai .head p { color: var(--muted); font-size: 15.5px; margin: 0; }
-  .ai-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: stretch; }
-  @media (max-width: 860px) { .ai-grid { grid-template-columns: 1fr; max-width: 480px; margin: 0 auto; } }
+  .ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; max-width: 760px; margin: 0 auto; }
+  @media (max-width: 860px) { .ai-grid { grid-template-columns: 1fr; max-width: 480px; } }
   .ai-card {
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
     padding: 24px 22px 20px; display: flex; flex-direction: column;
@@ -532,8 +532,21 @@
         </div>
       </div>
 
+      <div class="ai-card">
+        <span class="glyph">🏷️</span>
+        <h3>Generate genre &amp; tags</h3>
+        <p>One click in the metadata editor classifies the book: broad genres and specific tags, filled into both fields for you to review and save. Title Cased, never overlapping, always yours to edit first.</p>
+        <div class="ai-sample" role="img" aria-label="Sample of generated genre and tags">
+          <span class="th">Genre</span>
+          Science, History
+          <span class="th">Tags</span>
+          Mathematics, Philosophy Of Science, Number Theory
+          <span class="src">anthropic · claude-sonnet-4-6</span>
+        </div>
+      </div>
+
     </div>
-    <p class="ai-foot">Keys live in a <span class="mono">.env</span> on your server and work from every device; any browser can override with its own. Book metadata — and the text, only when you tick the box — goes to the provider you chose. <strong>Nothing leaves your server until you click.</strong></p>
+    <p class="ai-foot">Keys live in a <span class="mono">.env</span> on your server and work from every device; any browser can override with its own. Book metadata, and the text only when you tick the box, goes to the provider you chose. <strong>Nothing leaves your server until you click.</strong></p>
   </div>
 </section>
 

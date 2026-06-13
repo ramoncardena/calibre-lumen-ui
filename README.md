@@ -3,7 +3,7 @@
 **[Lumen Website](https://ramoncardena.github.io/calibre-lumen-ui/)**
 
 A modern, themeable, single-page web UI for the [Calibre Content Server](https://manual.calibre-ebook.com/server.html).
-Lumen talks to your existing Calibre library through its built-in API — nothing is
+Lumen talks to your existing Calibre library through its built-in API. Nothing is
 imported, converted, or duplicated, and the desktop GUI, OPDS feeds, and your
 e-reader keep working against the same database.
 
@@ -21,7 +21,7 @@ Two files, zero dependencies (Python 3.8+ standard library only):
   custom columns
 - Live search with full Calibre query syntax (`author:clausen`, `tag:scifi`)
 - Filter sidebar like Calibre's tag browser: Authors, Series, Tags, Publisher,
-  Languages, Rating, custom columns — with item counts, stacking filters, and a
+  Languages, Rating, custom columns, with item counts, stacking filters, and a
   pinned Status selector (Read / In progress / Not started)
 - Book drawer with downloads per format and one-tap read / in-progress
   toggles; series, genre, and tag chips filter the library when clicked
@@ -33,14 +33,15 @@ Two files, zero dependencies (Python 3.8+ standard library only):
   apply it for review before saving
 - Counts and filtered views refresh live after every change
 - Click-to-rate stars in the book panel
-- Optional AI assistant per book: similar titles, summary, and questions
-  (OpenAI / Anthropic / xAI, bring your own key) — optionally grounded in the
-  actual book by sending its EPUB/TXT text to the model
-- Eight selectable themes — four dark (Lamplight, Midnight, Forest, Plum) and
-  four light (Paper, Linen, Sakura, Dune) — picked from the header and saved
+- Optional AI assistant per book: similar titles, summary, questions, and
+  one-click genre/tag generation (OpenAI / Anthropic / xAI, bring your own
+  key), optionally grounded in the actual book by sending its EPUB/TXT text
+  to the model
+- Eight selectable themes: four dark (Lamplight, Midnight, Forest, Plum) and
+  four light (Paper, Linen, Sakura, Dune), picked from the header and saved
   per browser
 - Analytics dashboard: reading status, formats, books added per month,
-  publication decades, top tags/authors, and rating distribution — every
+  publication decades, top tags/authors, and rating distribution. Every
   chart is clickable and filters the library to what you tapped
 - Cover-size slider in the header, remembered per browser
 - Optional genre support through a `#genre` custom column: a sidebar section,
@@ -57,8 +58,8 @@ Two files, zero dependencies (Python 3.8+ standard library only):
 3. Open `http://<host>:8090`.
 
 Options: `--port`, `--bind`, `--env-file`, `--user`/`--password` (digest and
-basic auth supported). Secrets — AI keys, the Google Books key, calibre
-credentials — belong in a `.env` file (copy `.env.example`), not on the
+basic auth supported). Secrets (AI keys, the Google Books key, calibre
+credentials) belong in a `.env` file (copy `.env.example`), not on the
 command line, where they would be visible in `ps` output and shell history.
 
 ## Enabling writes (editing, status toggles)
@@ -71,7 +72,7 @@ The content server is read-only for anonymous users. Either:
   *Preferences → Sharing over the net → Advanced → "Allow un-authenticated
   connections from specific IP addresses to make changes"*.
 
-This option is read **once at server start** — restart the content server
+This option is read **once at server start**, so restart the content server
 after changing it. If Calibre runs in Docker, requests from the host arrive
 from the Docker network gateway; `172.16.0.0/12` covers the default subnets,
 or find the exact gateway with:
@@ -93,8 +94,8 @@ stay read-only. Run it on a trusted network.
 
 The book details panel has an AI button offering three book-scoped actions:
 similar-book recommendations (each linked to a Goodreads search), a
-spoiler-light summary, and free-form questions about the book. Supported providers: OpenAI, Anthropic, and xAI — bring your
-own API key.
+spoiler-light summary, and free-form questions about the book. Supported
+providers: OpenAI, Anthropic, and xAI. Bring your own API key.
 
 By default the model only sees the book's metadata. Ticking **"Send the book
 text"** makes the server extract the text from the book's EPUB (or TXT) and
@@ -107,7 +108,7 @@ can reach tens of cents on premium ones. Books with neither EPUB nor TXT
 can't use this option (convert in Calibre first).
 
 Configure it server-side (recommended; one key for every device) via a
-`.env` file next to `server.py` — copy `.env.example` to `.env` and fill in:
+`.env` file next to `server.py`. Copy `.env.example` to `.env` and fill in:
 
     LUMEN_AI_PROVIDER=anthropic
     LUMEN_AI_KEY=sk-ant-...
@@ -119,8 +120,15 @@ claude-sonnet-4-6 / grok-4). Alternatively, each browser can set its own
 provider + key under "AI settings" in the dialog; that key is stored in that
 browser's localStorage only and takes precedence over the server key.
 
+Generate genre and tags: the metadata edit dialog has a **Generate** button on
+the Tags field. It asks the model to classify the book from its metadata and
+fills both the Genre and Tags fields at once (a single request). Genres are
+kept broad, tags specific, every term is Title Cased, and a term never appears
+in both lists. The fields are filled for review; nothing is saved until you
+click Save. If you have not added a genre column, only Tags are filled.
+
 Privacy note: the selected book's metadata (title, authors, tags, publisher
-description), your question, and — only when the checkbox is ticked — the
+description), your question, and (only when the checkbox is ticked) the
 book's extracted text are sent to the chosen AI provider. Nothing
 else from the library leaves the server, and nothing is sent until an action
 is clicked.
@@ -145,7 +153,7 @@ is stored in that browser's localStorage, so each device keeps its own, and
 it's applied before first paint (no flash on load).
 
 Every color in the UI is a CSS variable, so adding your own theme is a small
-block in `index.html` — copy any `html[data-theme="..."]` block, change the
+block in `index.html`: copy any `html[data-theme="..."]` block, change the
 values, and add an entry to the `THEMES` array in the script.
 
 ## Run as a service
@@ -167,7 +175,7 @@ Then `systemctl enable --now lumen`.
 
 ## Limitations
 
-- No book upload or deletion (by design — use the Calibre GUI)
+- No book upload or deletion (by design, use the Calibre GUI)
 - Metadata sources are Google Books and Open Library, not the desktop's
   full plugin set; Open Library results have no descriptions
 - Metadata search needs outbound internet from the host running `server.py`
