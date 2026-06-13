@@ -336,6 +336,18 @@ def ai_build_user_prompt(action, book, question):
                 "(premise and what makes it notable), then list its three main themes. "
                 "If you do not know this specific book, say so and base the overview "
                 "only on the description above.")
+    elif action == "classify":
+        task = ("Classify this book for a personal library. Return ONLY a JSON object "
+                "with two keys: \"genre\" and \"tags\", each a comma-separated string.\n"
+                "- genre: 1 to 3 BROAD categories (e.g. Fiction, Science Fiction, "
+                "History, Biography, Fantasy, Mystery).\n"
+                "- tags: 4 to 8 SPECIFIC descriptors (themes, settings, subgenres, "
+                "e.g. Space Opera, Time Travel, Ancient Rome, Coming Of Age).\n"
+                "Rules: Title Case every word. No term may appear in both lists. "
+                "Tags must be more specific than genres, not synonyms of them. "
+                "No commentary, no markdown, no code fences. Example: "
+                "{\"genre\": \"Science Fiction, Fiction\", "
+                "\"tags\": \"First Contact, Space Exploration, Artificial Intelligence\"}")
     else:  # question
         task = ("Answer the reader's question about this specific book. If the answer "
                 "requires plot spoilers, start the line with 'Spoilers:' so the reader "
@@ -364,13 +376,49 @@ def ai_call(provider, key, model, user_prompt):
     return data["choices"][0]["message"]["content"]
 
 
+def _titlecase_csv(s):
+    items, seen, out = [x.strip() for x in str(s).split(",")], set(), []
+    for it in items:
+        if not it:
+            continue
+        words = []
+        for w in it.split(" "):
+            if not w:
+                continue
+            words.append(w if (w.isupper() and len(w) <= 3) else w[:1].upper() + w[1:].lower())
+        tc = " ".join(words)
+        k = tc.lower()
+        if k not in seen:
+            seen.add(k); out.append(tc)
+    return out
+
+
+def parse_classification(text):
+    """Pull {genre, tags} out of the model reply, tolerating stray prose/fences."""
+    raw = text.strip()
+    if "{" in raw and "}" in raw:
+        raw = raw[raw.index("{"): raw.rindex("}") + 1]
+    genre = tags = ""
+    try:
+        obj = json.loads(raw)
+        genre, tags = obj.get("genre", ""), obj.get("tags", "")
+        if isinstance(genre, list): genre = ", ".join(genre)
+        if isinstance(tags, list): tags = ", ".join(tags)
+    except ValueError:
+        pass
+    g, t = _titlecase_csv(genre), _titlecase_csv(tags)
+    gset = {x.lower() for x in g}
+    t = [x for x in t if x.lower() not in gset]   # enforce no overlap
+    return {"genre": ", ".join(g), "tags": ", ".join(t)}
+
+
 def ai_handle(body):
     try:
         req = json.loads(body or b"{}")
     except ValueError:
         return 400, {"error": "Invalid JSON"}
     action = req.get("action")
-    if action not in ("similar", "summary", "question"):
+    if action not in ("similar", "summary", "question", "classify"):
         return 400, {"error": "Unknown action"}
     provider = (req.get("provider") or AI_PROVIDER or "").lower()
     key = req.get("api_key") or AI_KEY
@@ -392,7 +440,10 @@ def ai_handle(body):
     prompt = ai_build_user_prompt(action, book, req.get("question"))
     try:
         text = ai_call(provider, key, model, prompt)
-        return 200, {"text": text, "provider": provider, "model": model}
+        out = {"text": text, "provider": provider, "model": model}
+        if action == "classify":
+            out.update(parse_classification(text))
+        return 200, out
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:400]
         return 502, {"error": f"{provider} returned {e.code}: {detail}"}
