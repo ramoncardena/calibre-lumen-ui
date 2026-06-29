@@ -314,8 +314,25 @@
   .kv { font-size: 13px; color: var(--muted); display: grid; grid-template-columns: 86px 1fr; gap: 3px 10px; margin-bottom: 18px; }
   .kv dt { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
   .kv dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
-  #d-comments { font-size: 13.5px; color: var(--soft); border-top: 1px solid var(--line); padding-top: 14px; }
+  #d-comments, #d-highlights { font-size: 13.5px; color: var(--soft); border-top: 1px solid var(--line); padding-top: 14px; }
   #d-comments p { margin: 0 0 .7em; }
+  #d-highlights { margin-top: 14px; }
+  #d-highlights:empty { display: none; }
+  #d-highlights summary {
+    cursor: pointer; display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  #d-highlights summary:hover { color: var(--lamp); }
+  #d-highlights summary span { margin-left: auto; color: var(--lamp); }
+  #d-highlights .hl-body { display: grid; gap: 9px; padding-top: 10px; }
+  #d-highlights .hl-title { font-family: var(--font-display); font-size: 18px; color: var(--text); margin: 0; }
+  #d-highlights .hl-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+  #d-highlights blockquote {
+    margin: 0; padding: 0 0 0 12px; border-left: 3px solid var(--lamp-border);
+    color: var(--soft);
+  }
+  #d-highlights p { margin: 0; }
 
   /* ---------- edit modal ---------- */
   #modal-scrim {
@@ -460,6 +477,83 @@
   .ai-include.unavailable { opacity: .45; cursor: default; }
   @media (max-width: 600px) { #ai-settings .grid { grid-template-columns: 1fr; } }
 
+  /* ---------- highlight import ---------- */
+  #import-scrim {
+    position: fixed; inset: 0; z-index: 46; background: var(--scrim);
+    opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  #import-scrim.open { opacity: 1; pointer-events: auto; }
+  #dav-scrim {
+    position: fixed; inset: 0; z-index: 46; background: var(--scrim);
+    opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  #dav-scrim.open { opacity: 1; pointer-events: auto; }
+  #import-modal, #dav-modal {
+    position: fixed; z-index: 47; inset: 0; margin: auto;
+    width: min(720px, 96vw); height: fit-content; max-height: min(90vh, 760px);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    display: none; flex-direction: column;
+  }
+  #import-modal.open, #dav-modal.open { display: flex; }
+  #import-modal .m-head, #dav-modal .m-head { padding: 18px 22px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  #import-modal .m-head h2, #dav-modal .m-head h2 { font-family: var(--font-display); font-weight: 640; font-size: 19px; margin: 0; }
+  #import-modal .m-body, #dav-modal .m-body { overflow-y: auto; padding: 18px 22px; min-height: 0; display: grid; gap: 14px; }
+  #import-modal .m-foot, #dav-modal .m-foot {
+    padding: 14px 22px; border-top: 1px solid var(--line);
+    display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;
+  }
+  .import-summary {
+    background: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+    padding: 13px 15px; font-size: 13.5px; color: var(--soft);
+  }
+  .import-summary b { color: var(--text); font-weight: 600; }
+  .import-summary .meta { margin-top: 5px; color: var(--muted); font-size: 12px; }
+  .import-search { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .import-search input {
+    background: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+    color: var(--text); padding: 9px 12px; font: inherit; font-size: 14px; outline: none; min-width: 0;
+  }
+  .import-search input:focus { border-color: var(--lamp); }
+  #import-status { font-size: 12.5px; color: var(--muted); }
+  #import-candidates { display: grid; gap: 8px; max-height: 300px; overflow-y: auto; }
+  .import-candidate {
+    display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;
+    background: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); padding: 10px 12px; text-align: left; cursor: pointer;
+  }
+  .import-candidate:hover, .import-candidate.selected { border-color: var(--lamp); }
+  .import-candidate .t { font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+  .import-candidate .s { font-size: 12px; color: var(--muted); margin-top: 2px; display: block; }
+  .import-candidate .score { font-family: var(--font-mono); font-size: 10px; color: var(--lamp); }
+  #dav-btn .count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px; margin-left: 7px;
+    border-radius: 99px; background: var(--lamp); color: var(--ink);
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  }
+  .dav-status { font-size: 12.5px; color: var(--muted); }
+  #dav-list { display: grid; gap: 8px; max-height: 430px; overflow-y: auto; }
+  .dav-file {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center;
+    background: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); padding: 10px 12px;
+  }
+  .dav-file:hover { border-color: var(--lamp); }
+  .dav-open {
+    background: none; border: 0; color: inherit; padding: 0; text-align: left;
+    font: inherit; cursor: pointer; min-width: 0;
+  }
+  .dav-delete {
+    background: none; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--muted); padding: 6px 9px; font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .dav-delete:hover { border-color: var(--danger); color: var(--danger); }
+  .dav-file .t { font-size: 13.5px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+  .dav-file .s { font-size: 12px; color: var(--muted); margin-top: 2px; display: block; overflow-wrap: anywhere; }
+  .dav-file .size { font-family: var(--font-mono); font-size: 10px; color: var(--lamp); white-space: nowrap; }
+  @media (max-width: 560px) { .import-search { grid-template-columns: 1fr; } }
+
   /* ---------- analytics ---------- */
   #an-scrim {
     position: fixed; inset: 0; z-index: 44; background: var(--scrim);
@@ -597,6 +691,9 @@
         <span class="lg"></span>
       </div>
       <button id="an-btn" class="btn" title="Library analytics">📊</button>
+      <button id="dav-btn" class="btn hidden" title="Review Boox WebDAV uploads">Boox inbox <span class="count hidden" id="dav-count"></span></button>
+      <button id="import-btn" class="btn hidden" title="Import Boox NeoReader highlights">Import highlights</button>
+      <input id="import-file" class="hidden" type="file" accept=".txt,.html,.htm,text/plain,text/html">
       <div class="theme-wrap">
         <button id="theme-btn" title="Theme"><span class="dot"></span></button>
         <div id="theme-pop" role="menu" aria-label="Choose a theme"></div>
@@ -643,6 +740,7 @@
   </div>
   <dl class="kv" id="d-kv"></dl>
   <div id="d-comments"></div>
+  <div id="d-highlights"></div>
 </aside>
 
 <!-- centered edit dialog -->
@@ -759,6 +857,44 @@
   </div>
 </div>
 
+<div id="import-scrim"></div>
+<div id="import-modal" role="dialog" aria-modal="true" aria-label="Import highlights">
+  <div class="m-head">
+    <h2>Import highlights</h2>
+    <button class="closebtn" id="import-close" title="Close" style="position:static;margin-left:auto">✕</button>
+  </div>
+  <div class="m-body">
+    <div class="import-summary" id="import-summary"></div>
+    <div class="import-search">
+      <input id="import-book-search" type="text" placeholder="Search the library for this book">
+      <button class="btn" id="import-search-btn">Search</button>
+    </div>
+    <div id="import-status"></div>
+    <div id="import-candidates"></div>
+  </div>
+  <div class="m-foot">
+    <button class="btn" id="import-pick">Choose another file</button>
+    <button class="btn" id="import-cancel">Cancel</button>
+    <button class="btn primary" id="import-confirm" disabled>Import</button>
+  </div>
+</div>
+
+<div id="dav-scrim"></div>
+<div id="dav-modal" role="dialog" aria-modal="true" aria-label="Boox inbox">
+  <div class="m-head">
+    <h2>Boox inbox</h2>
+    <button class="closebtn" id="dav-close" title="Close" style="position:static;margin-left:auto">✕</button>
+  </div>
+  <div class="m-body">
+    <div class="dav-status" id="dav-status"></div>
+    <div id="dav-list"></div>
+  </div>
+  <div class="m-foot">
+    <button class="btn" id="dav-refresh">Refresh</button>
+    <button class="btn" id="dav-cancel">Close</button>
+  </div>
+</div>
+
 <div id="toasts"></div>
 
 <script>
@@ -768,11 +904,13 @@
   const READ_COL = "#read";
   const STARTED_COL = "#started";
   const GENRE_COL = "#genre";   // comma-separated text column
+  const HIGHLIGHTS_COL = "#highlights";
 
   const state = {
     lib: null, query: "", sort: "timestamp", order: "desc",
     offset: 0, total: 0, loading: false, done: false,
     books: new Map(), filters: [], current: null,
+    hasGenre: false, hasHighlights: false, hasDavInbox: false, davInboxCount: 0,
   };
 
   const $ = s => document.querySelector(s);
@@ -838,7 +976,35 @@
       : m.user_metadata?.[GENRE_COL]?.["#value#"];                // ajax shape
     return Array.isArray(v) ? v : (v ? [String(v)] : []);
   }
+  function customValue(m, col) {
+    if (!m) return "";
+    if (col in m) return m[col] || "";
+    return m.user_metadata?.[col]?.["#value#"] || "";
+  }
   const undefinedDate = s => !s || s.slice(0, 4) === "0101" || s.slice(0, 4) === "0100";
+
+  function updateImportAvailability() {
+    $("#import-btn").classList.toggle("hidden", !state.hasHighlights);
+    $("#dav-btn").classList.toggle("hidden", !state.hasDavInbox);
+    const count = $("#dav-count");
+    count.textContent = state.davInboxCount || "";
+    count.classList.toggle("hidden", !state.davInboxCount);
+  }
+  function resetCustomColumnState() {
+    state.hasGenre = false;
+    state.hasHighlights = false;
+    state.hasDavInbox = false;
+    state.davInboxCount = 0;
+    updateImportAvailability();
+  }
+  function noteCustomColumns(m) {
+    if (!m || !m.user_metadata) return;
+    if (!state.hasGenre && GENRE_COL in m.user_metadata) state.hasGenre = true;
+    if (!state.hasHighlights && HIGHLIGHTS_COL in m.user_metadata) {
+      state.hasHighlights = true;
+      updateImportAvailability();
+    }
+  }
 
   /* ================= search & grid ================= */
 
@@ -897,8 +1063,7 @@
           if (typeof m.rating === "number") m.rating *= 2;
           // user_metadata lists every DEFINED custom column (even empty ones),
           // unlike /ajax/categories which omits columns with no items yet
-          if (!state.hasGenre && m.user_metadata && GENRE_COL in m.user_metadata)
-            state.hasGenre = true;
+          noteCustomColumns(m);
           state.books.set(String(id), m);
           frag.appendChild(card(id, m));
         }
@@ -962,7 +1127,6 @@
     fh.innerHTML = `Filters <button class="closebtn" title="Close">✕</button>`;
     fh.querySelector("button").addEventListener("click", () => setFacetsOpen(false));
     facets.appendChild(fh);
-    state.hasGenre = false;
     facets.appendChild(statusFacet());
     const sections = [];
     for (const c of cats) {
@@ -971,6 +1135,10 @@
       if (!m) continue;
       const key = hexDecode(m[1]);
       if (key === GENRE_COL) state.hasGenre = true;
+      if (key === HIGHLIGHTS_COL) {
+        state.hasHighlights = true;
+        updateImportAvailability();
+      }
       if (key === READ_COL || key === STARTED_COL) continue;   // covered by Status
       if (!(key in FILTERABLE) && !key.startsWith("#")) continue;
       const sec = facetSection(key, c.name);
@@ -1191,6 +1359,68 @@
         [...n.attributes].forEach(a => { if (/^on/i.test(a.name)) n.removeAttribute(a.name); }));
       com.appendChild(tpl.content);
     }
+
+    const hl = $("#d-highlights");
+    hl.innerHTML = "";
+    const highlights = customValue(m, HIGHLIGHTS_COL);
+    if (highlights) hl.appendChild(renderHighlights(highlights));
+  }
+
+  function renderHighlights(markdown) {
+    const details = document.createElement("details");
+    const raw = String(markdown);
+    const metadataComment = /\x3c!--\s*lumen:annotations\s+({[\s\S]*?})\s*--\x3e/i;
+    const meta = raw.match(metadataComment);
+    const annotationCount = (() => {
+      if (!meta) return "";
+      try { return JSON.parse(meta[1]).count || ""; } catch { return ""; }
+    })();
+    const summary = document.createElement("summary");
+    summary.textContent = "Highlights";
+    if (annotationCount) {
+      const badge = document.createElement("span");
+      badge.textContent = String(annotationCount);
+      summary.appendChild(badge);
+    }
+    details.appendChild(summary);
+    const box = document.createElement("div");
+    box.className = "hl-body";
+    const clean = raw.replace(metadataComment, "").trim();
+    const lines = clean.split("\n");
+    let quote = [];
+    const flushQuote = () => {
+      if (!quote.length) return;
+      const bq = document.createElement("blockquote");
+      bq.textContent = quote.join("\n");
+      box.appendChild(bq);
+      quote = [];
+    };
+    const addP = text => {
+      const p = document.createElement("p");
+      p.textContent = text.replace(/\*\*/g, "");
+      box.appendChild(p);
+    };
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) { flushQuote(); continue; }
+      if (line.startsWith(">")) {
+        quote.push(line.replace(/^>\s?/, ""));
+      } else {
+        flushQuote();
+        const heading = line.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) {
+          const p = document.createElement("p");
+          p.className = heading[1].length === 1 ? "hl-title" : "hl-meta";
+          p.textContent = heading[2];
+          box.appendChild(p);
+        } else {
+          addP(line);
+        }
+      }
+    }
+    flushQuote();
+    details.appendChild(box);
+    return details;
   }
 
   function renderDrawerRating(m) {
@@ -1256,6 +1486,7 @@
 
   let applyUpdate = function (id, updated) {
     if (!updated) return;
+    noteCustomColumns(updated);
     state.books.set(String(id), updated);
     const old = grid.querySelector(`.book[data-id="${id}"]`);
     if (old) old.replaceWith(card(id, updated));
@@ -1266,6 +1497,454 @@
     refreshStatusCounts();
     if (state.filters.length || state.query.trim()) reset();
   };
+
+  /* ================= Boox highlight import ================= */
+
+  let importJob = null;
+
+  function cleanLine(s) {
+    return String(s || "").replace(/\u00a0/g, " ").trim();
+  }
+  const normText = s => cleanLine(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/^(the|a|an)\s+/, "").replace(/[^a-z0-9]+/g, " ").trim();
+  const firstAuthor = s => cleanLine(String(s || "").split(/[,&;]| and /i)[0]);
+  const isSep = line => /^[-_=*]{3,}$/.test(cleanLine(line));
+  const fieldMatch = (line, labels) => {
+    const m = cleanLine(line).match(/^([^:：]{2,28})\s*[:：]\s*(.*)$/);
+    if (!m) return null;
+    const k = m[1].toLowerCase().replace(/\s+/g, " ");
+    return labels.includes(k) ? cleanLine(m[2]) : null;
+  };
+
+  function htmlBlockText(node) {
+    return String(node?.textContent || "").replace(/\u00a0/g, " ")
+      .replace(/[ \t]+/g, " ").replace(/\s+\n/g, "\n").replace(/\n\s+/g, "\n").trim();
+  }
+  const timestampRe = /\b(20\d\d[-/.]\d{1,2}[-/.]\d{1,2}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?)\b/;
+  const isBooxHtml = text => /^\s*(?:<!doctype\s+html|<html[\s>]|.*<body[\s>])/is.test(String(text || ""));
+
+  function parseBooxHtmlAnnotations(text) {
+    const raw = String(text || "").trim();
+    if (!raw) throw new Error("The selected file is empty.");
+    const doc = new DOMParser().parseFromString(raw, "text/html");
+    const titleTag = cleanLine(doc.querySelector("title")?.textContent || "");
+    const out = {
+      title: cleanLine(doc.querySelector("h2")?.textContent || "") ||
+        titleTag.replace(/\s*\(Author\b.*?\)\s*$/i, ""),
+      author: cleanLine(doc.querySelector("h5")?.textContent || "") ||
+        cleanLine((titleTag.match(/\(Author\s+(.+?)\)\s*$/i) || [])[1] || ""),
+      entries: [],
+      raw,
+    };
+    const body = doc.body || doc;
+    const footerRe = /BOOX\s+Reading\s+Notes/i;
+    const children = [...body.children];
+    let chapter = "";
+
+    const cleanHtmlNote = s => String(s || "").replace(/BOOX\s+Reading\s+Notes[\s\S]*$/i, "").split("\n")
+      .map(line => cleanLine(line)).filter(line => line && !footerRe.test(line)).join("\n");
+
+    for (const child of children) {
+      const tag = child.tagName ? child.tagName.toLowerCase() : "";
+      const textBlock = cleanHtmlNote(htmlBlockText(child));
+      if (!textBlock || tag === "h2" || tag === "h5" || (!timestampRe.test(textBlock) && footerRe.test(textBlock))) continue;
+      const date = textBlock.match(timestampRe);
+      if (date) {
+        const direct = [...child.children];
+        const dateIndex = direct.findIndex(el => timestampRe.test(htmlBlockText(el)));
+        const afterDate = dateIndex >= 0 ? direct.slice(dateIndex + 1) : [];
+        let highlight = cleanHtmlNote(afterDate.map(htmlBlockText).filter(Boolean).join("\n\n"));
+        if (!highlight) highlight = cleanHtmlNote(textBlock.replace(date[0], ""));
+        out.entries.push({
+          highlight: highlight || textBlock,
+          comment: "",
+          page: "",
+          date: date[1].replace(/\//g, "-"),
+          chapter,
+          raw: textBlock,
+        });
+        continue;
+      }
+      if (textBlock.length < 180) chapter = textBlock;
+    }
+
+    if (!out.entries.length) {
+      const bodyText = cleanHtmlNote(htmlBlockText(body));
+      if (bodyText) out.entries.push({ raw: bodyText, highlight: bodyText, comment: "", page: "", date: "", chapter: "" });
+    }
+    return out;
+  }
+
+  function parseBooxTextAnnotations(text) {
+    const raw = String(text || "").replace(/\r\n?/g, "\n").trim();
+    if (!raw) throw new Error("The selected file is empty.");
+    const lines = raw.split("\n");
+    const out = { title: "", author: "", entries: [], raw };
+    const blocks = [];
+    let cur = [];
+    for (const line of lines) {
+      if (isSep(line)) {
+        if (cur.some(x => cleanLine(x))) blocks.push(cur.join("\n").trim());
+        cur = [];
+      } else {
+        cur.push(line);
+      }
+    }
+    if (cur.some(x => cleanLine(x))) blocks.push(cur.join("\n").trim());
+    const splitBlocks = blocks.flatMap(b => b.split(/\n{2,}/).map(x => x.trim()).filter(Boolean));
+
+    for (const line of lines.slice(0, 80)) {
+      if (!out.title) out.title = fieldMatch(line, ["book", "book name", "book title", "title", "name"]) || "";
+      if (!out.author) out.author = fieldMatch(line, ["author", "authors", "creator", "writer"]) || "";
+    }
+
+    for (const block of splitBlocks) {
+      const entry = { highlight: "", comment: "", page: "", date: "", chapter: "", raw: block };
+      const rest = [];
+      let current = "";
+      for (let line of block.split("\n")) {
+        line = cleanLine(line);
+        if (!line) continue;
+        const bracket = line.match(/^【(.+?)】\s*(.*)$/);
+        if (bracket) line = `${bracket[1]}: ${bracket[2]}`;
+
+        const title = fieldMatch(line, ["book", "book name", "book title", "title", "name"]);
+        const author = fieldMatch(line, ["author", "authors", "creator", "writer"]);
+        if (title && !out.title) { out.title = title; continue; }
+        if (author && !out.author) { out.author = author; continue; }
+
+        const page = line.match(/\b(?:page|p\.?|page no\.?)\s*[:：]?\s*([0-9ivxlcdm]+(?:\s*[-–]\s*[0-9ivxlcdm]+)?)/i);
+        if (page) entry.page = entry.page || page[1].replace(/\s+/g, " ");
+        const date = line.match(/\b(20\d\d[-/.]\d{1,2}[-/.]\d{1,2}(?:[ T]\d{1,2}:\d{2}(?::\d{2})?)?)\b/);
+        if (date) entry.date = entry.date || date[1].replace(/\//g, "-");
+        const chapter = fieldMatch(line, ["chapter", "chapter title", "section", "toc", "location"]);
+        if (chapter) { entry.chapter = entry.chapter || chapter; continue; }
+
+        const hi = fieldMatch(line, ["highlight", "highlighted text", "highlights", "quote", "annotation", "excerpt", "original text", "marked text", "content"]);
+        const note = fieldMatch(line, ["note", "note text", "notes", "comment", "comment text", "comments", "memo", "remark"]);
+        if (hi !== null) {
+          current = "highlight";
+          if (hi) entry.highlight += (entry.highlight ? "\n" : "") + hi;
+          continue;
+        }
+        if (note !== null) {
+          current = "comment";
+          if (note) entry.comment += (entry.comment ? "\n" : "") + note;
+          continue;
+        }
+        if (/^(page|p\.?|date|time|created|modified)\s*[:：]/i.test(line)) continue;
+        if (current === "highlight") entry.highlight += (entry.highlight ? "\n" : "") + line;
+        else if (current === "comment") entry.comment += (entry.comment ? "\n" : "") + line;
+        else rest.push(line);
+      }
+      if (!entry.highlight && !entry.comment && rest.length) entry.highlight = rest.join("\n");
+      if (entry.highlight || entry.comment || rest.length) out.entries.push(entry);
+    }
+    if (!out.entries.length) out.entries.push({ raw, highlight: raw, comment: "", page: "", date: "", chapter: "" });
+    return out;
+  }
+
+  function parseBooxAnnotations(text) {
+    return isBooxHtml(text) ? parseBooxHtmlAnnotations(text) : parseBooxTextAnnotations(text);
+  }
+
+  function hashText(text) {
+    let h = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(16).padStart(8, "0");
+  }
+  function mdLine(text) {
+    return String(text || "").split("\n").map(l => l.trimEnd()).join("\n");
+  }
+  function quoteMd(text) {
+    return mdLine(text).split("\n").map(l => "> " + l).join("\n");
+  }
+  function formatBooxMarkdown(parsed) {
+    const meta = { source: "boox-neoreader", count: parsed.entries.length, hash: hashText(parsed.raw) };
+    const lines = [`\x3c!-- lumen:annotations ${JSON.stringify(meta)} --\x3e`, "", "# Boox NeoReader highlights", ""];
+    if (parsed.title) lines.push(`**Book:** ${parsed.title}`, "");
+    if (parsed.author) lines.push(`**Author:** ${parsed.author}`, "");
+    let lastChapter = null;
+    parsed.entries.forEach((e, i) => {
+      if (e.chapter && e.chapter !== lastChapter) {
+        lines.push(`## ${e.chapter}`, "");
+        lastChapter = e.chapter;
+      }
+      const bits = [];
+      if (e.page) bits.push(`Page ${e.page}`);
+      if (e.date) bits.push(e.date);
+      lines.push(`### ${bits.join(" - ") || `Highlight ${i + 1}`}`, "");
+      if (e.highlight) lines.push(quoteMd(e.highlight), "");
+      if (e.comment) lines.push("**Note:**", "", mdLine(e.comment), "");
+      if (!e.highlight && !e.comment && e.raw) lines.push("```text", e.raw, "```", "");
+    });
+    return lines.join("\n").replace(/\n{4,}/g, "\n\n\n").trim() + "\n";
+  }
+
+  async function searchImportCandidates(query, parsed) {
+    if (!query) return [];
+    const s = await api(`/ajax/search?library_id=${enc(state.lib)}&num=20&offset=0&query=${enc(query)}`);
+    const ids = s.book_ids || [];
+    if (!ids.length) return [];
+    const meta = await api(`/ajax/books?library_id=${enc(state.lib)}&ids=${ids.join(",")}`);
+    return ids.map(id => {
+      const m = meta[id];
+      if (!m) return null;
+      if (typeof m.rating === "number") m.rating *= 2;
+      noteCustomColumns(m);
+      const t = normText(m.title);
+      const pt = normText(parsed.title);
+      const authors = (m.authors || []).map(normText);
+      const pa = normText(firstAuthor(parsed.author));
+      let score = 0;
+      if (pt && t === pt) score += 70;
+      else if (pt && (t.includes(pt) || pt.includes(t))) score += 45;
+      if (pa && authors.some(a => a === pa || a.includes(pa) || pa.includes(a))) score += 30;
+      else if (pa) score -= 10;
+      return { id: String(id), book: m, score };
+    }).filter(Boolean).sort((a, b) => b.score - a.score);
+  }
+
+  async function findImportCandidates(parsed) {
+    const queries = [];
+    if (parsed.title && parsed.author)
+      queries.push(`title:"=${escq(parsed.title)}" and authors:"=${escq(firstAuthor(parsed.author))}"`);
+    if (parsed.title) queries.push(`title:"=${escq(parsed.title)}"`);
+    if (parsed.title || parsed.author) queries.push([parsed.title, parsed.author].filter(Boolean).join(" "));
+    const seen = new Map();
+    for (const q of queries.filter(Boolean)) {
+      for (const c of await searchImportCandidates(q, parsed)) {
+        if (!seen.has(c.id) || seen.get(c.id).score < c.score) seen.set(c.id, c);
+      }
+    }
+    return [...seen.values()].sort((a, b) => b.score - a.score).slice(0, 12);
+  }
+
+  function renderImportCandidates(candidates) {
+    const box = $("#import-candidates");
+    box.innerHTML = "";
+    $("#import-confirm").disabled = true;
+    importJob.selectedId = null;
+    if (!candidates.length) {
+      $("#import-status").textContent = "No candidates found. Try another library search.";
+      return;
+    }
+    const strong = candidates.filter(c => c.score >= 85);
+    if (strong.length === 1 && (!candidates[1] || strong[0].score - candidates[1].score >= 15)) {
+      importJob.selectedId = strong[0].id;
+      $("#import-confirm").disabled = !state.hasHighlights;
+      $("#import-status").textContent = state.hasHighlights
+        ? "One strong match found. Confirm before writing."
+        : "Found a matching book, but Calibre has no #highlights custom column. Create it, reload Lumen, then import.";
+    } else {
+      $("#import-status").textContent = state.hasHighlights
+        ? "Choose the matching Calibre book before importing."
+        : "Choose a book to review the match. To import, create the #highlights custom column and reload Lumen.";
+    }
+    for (const c of candidates) {
+      const b = document.createElement("button");
+      b.className = "import-candidate";
+      b.dataset.id = c.id;
+      b.classList.toggle("selected", c.id === importJob.selectedId);
+      b.innerHTML = `<span><span class="t">${escapeHtml(c.book.title || "Untitled")}</span>
+        <span class="s">${escapeHtml((c.book.authors || []).join(", "))}</span></span>
+        <span class="score">${c.score}</span>`;
+      b.addEventListener("click", () => {
+        importJob.selectedId = c.id;
+        document.querySelectorAll(".import-candidate").forEach(x => x.classList.toggle("selected", x === b));
+        $("#import-confirm").disabled = !state.hasHighlights;
+        if (!state.hasHighlights)
+          $("#import-status").textContent = "Calibre has no #highlights custom column. Create it, reload Lumen, then import.";
+      });
+      box.appendChild(b);
+    }
+  }
+
+  function openImportModal() {
+    $("#import-modal").classList.add("open");
+    $("#import-scrim").classList.add("open");
+  }
+  function closeImportModal() {
+    $("#import-modal").classList.remove("open");
+    $("#import-scrim").classList.remove("open");
+  }
+  async function startImportFromText(text, name) {
+    const parsed = parseBooxAnnotations(text);
+    importJob = { parsed, markdown: formatBooxMarkdown(parsed), selectedId: null };
+    const guess = [parsed.title, parsed.author].filter(Boolean).join(" ");
+    $("#import-book-search").value = guess;
+    $("#import-summary").innerHTML = `<b>${parsed.entries.length}</b> highlights parsed from ${escapeHtml(name || "the file")}` +
+      `<div class="meta">${escapeHtml(parsed.title || "Title not found")}` +
+      `${parsed.author ? " - " + escapeHtml(parsed.author) : ""}</div>`;
+    $("#import-status").textContent = "Searching the library...";
+    $("#import-candidates").innerHTML = "";
+    openImportModal();
+    renderImportCandidates(await findImportCandidates(parsed));
+  }
+
+  function prettyBytes(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  }
+  function closeDavInbox() {
+    $("#dav-modal").classList.remove("open");
+    $("#dav-scrim").classList.remove("open");
+  }
+  function renderDavInbox(files) {
+    const box = $("#dav-list");
+    box.innerHTML = "";
+    if (!files.length) {
+      $("#dav-status").textContent = "No received Boox .txt or .html files yet.";
+      return;
+    }
+    $("#dav-status").textContent = `${files.length} received file${files.length === 1 ? "" : "s"}. Choose one to review and import.`;
+    for (const f of files) {
+      const row = document.createElement("div");
+      row.className = "dav-file";
+      const open = document.createElement("button");
+      open.className = "dav-open";
+      open.innerHTML = `<span class="t">${escapeHtml(f.name || f.path || "Untitled")}</span>
+        <span class="s">${escapeHtml(f.path || "")}${f.modified ? " - " + escapeHtml(f.modified) : ""}</span>`;
+      const size = document.createElement("span");
+      size.className = "size";
+      size.textContent = prettyBytes(f.size);
+      const del = document.createElement("button");
+      del.className = "dav-delete";
+      del.textContent = "Delete";
+      del.title = "Delete this received file from the DAV inbox";
+      open.addEventListener("click", async () => {
+        $("#dav-status").textContent = "Opening received file...";
+        try {
+          const r = await fetch(f.url);
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+          const text = await r.text();
+          closeDavInbox();
+          await startImportFromText(text, f.path || f.name);
+        } catch (e) {
+          $("#dav-status").textContent = "Couldn't open that file: " + e.message;
+        }
+      });
+      del.addEventListener("click", async () => {
+        if (!confirm(`Delete ${f.path || f.name || "this file"} from the Boox inbox?`)) return;
+        del.disabled = true;
+        $("#dav-status").textContent = "Deleting file...";
+        try {
+          const r = await fetch(f.url, { method: "DELETE" });
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+          await refreshDavInbox(true);
+        } catch (e) {
+          $("#dav-status").textContent = "Couldn't delete that file: " + e.message;
+          del.disabled = false;
+        }
+      });
+      row.append(open, size, del);
+      box.appendChild(row);
+    }
+  }
+  async function refreshDavInbox(showErrors = true) {
+    try {
+      const data = await api("/dav-inbox");
+      state.hasDavInbox = !!data.enabled;
+      state.davInboxCount = (data.files || []).length;
+      updateImportAvailability();
+      renderDavInbox(data.files || []);
+    } catch (e) {
+      state.hasDavInbox = false;
+      state.davInboxCount = 0;
+      updateImportAvailability();
+      if (showErrors) {
+        $("#dav-status").textContent = "Boox WebDAV is not enabled on this Lumen server.";
+        $("#dav-list").innerHTML = "";
+      }
+    }
+  }
+  async function refreshDavStatus() {
+    try {
+      const data = await api("/dav-status");
+      state.hasDavInbox = !!data.enabled;
+      state.davInboxCount = Number(data.count) || 0;
+    } catch {
+      state.hasDavInbox = false;
+      state.davInboxCount = 0;
+    }
+    updateImportAvailability();
+  }
+  async function openDavInbox() {
+    $("#dav-modal").classList.add("open");
+    $("#dav-scrim").classList.add("open");
+    $("#dav-status").textContent = "Reading inbox...";
+    $("#dav-list").innerHTML = "";
+    await refreshDavInbox(true);
+  }
+  async function writeHighlights(id, markdown) {
+    const data = await postJSON(`/cdb/cmd/set_custom/0?library_id=${enc(state.lib)}`,
+      [HIGHLIGHTS_COL.slice(1), Number(id), markdown, false]);
+    if (data.err) throw new Error(data.err);
+    if (Array.isArray(data.result) && data.result[0] === false)
+      throw new Error(data.result[1] || "Calibre could not write the highlights column.");
+    const meta = await api(`/ajax/books?library_id=${enc(state.lib)}&ids=${id}`);
+    const updated = meta[id];
+    if (updated && typeof updated.rating === "number") updated.rating *= 2;
+    return updated || null;
+  }
+
+  $("#dav-btn").addEventListener("click", openDavInbox);
+  $("#dav-refresh").addEventListener("click", () => refreshDavInbox(true));
+  $("#dav-close").addEventListener("click", closeDavInbox);
+  $("#dav-cancel").addEventListener("click", closeDavInbox);
+  $("#dav-scrim").addEventListener("click", closeDavInbox);
+  $("#import-btn").addEventListener("click", () => $("#import-file").click());
+  $("#import-pick").addEventListener("click", () => $("#import-file").click());
+  $("#import-file").addEventListener("change", e => {
+    const f = e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => startImportFromText(r.result, f.name).catch(err => toast(err.message, "err"));
+    r.onerror = () => toast("Couldn't read that file.", "err");
+    r.readAsText(f);
+  });
+  $("#import-search-btn").addEventListener("click", async () => {
+    if (!importJob) return;
+    $("#import-status").textContent = "Searching...";
+    try {
+      renderImportCandidates(await searchImportCandidates($("#import-book-search").value.trim(), importJob.parsed));
+    } catch (e) {
+      $("#import-status").textContent = "Search failed: " + e.message;
+    }
+  });
+  $("#import-book-search").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); $("#import-search-btn").click(); }
+  });
+  $("#import-confirm").addEventListener("click", async () => {
+    if (!importJob || !importJob.selectedId) return;
+    if (!state.hasHighlights) {
+      toast("Create the #highlights custom column in Calibre, then reload Lumen before importing.", "err");
+      return;
+    }
+    const id = importJob.selectedId;
+    const book = state.books.get(id) || {};
+    const btn = $("#import-confirm");
+    btn.disabled = true;
+    try {
+      const updated = await writeHighlights(id, importJob.markdown);
+      if (updated) applyUpdate(id, updated);
+      closeImportModal();
+      toast(`${importJob.parsed.entries.length} highlights imported to ${updated?.title || book.title || "the selected book"}.`, "ok");
+    } catch (e) {
+      toast(writeError(e), "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  $("#import-close").addEventListener("click", closeImportModal);
+  $("#import-cancel").addEventListener("click", closeImportModal);
+  $("#import-scrim").addEventListener("click", closeImportModal);
 
   /* ================= AI classify (genre + tags) ================= */
 
@@ -1988,12 +2667,15 @@
   $("#library").addEventListener("change", e => {
     state.lib = e.target.value;
     state.filters = [];
+    resetCustomColumnState();
     loadCategories();
     reset();
   });
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
       if ($("#an-modal").classList.contains("open")) closeAnalytics();
+      else if ($("#dav-modal").classList.contains("open")) closeDavInbox();
+      else if ($("#import-modal").classList.contains("open")) closeImportModal();
       else if ($("#ai-modal").classList.contains("open")) closeAiModal();
       else if ($("#modal").classList.contains("open")) closeModal();
       else { closeDrawer(); setFacetsOpen(false); }
@@ -2016,6 +2698,8 @@
       if (libs.length > 1) sel.classList.remove("hidden");
       state.lib = info.default_library || (libs[0] && libs[0][0]);
       sel.value = state.lib;
+      resetCustomColumnState();
+      refreshDavStatus();
       loadCategories();
       reset();
     } catch (e) {

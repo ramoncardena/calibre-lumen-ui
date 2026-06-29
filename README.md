@@ -37,6 +37,9 @@ Two files, zero dependencies (Python 3.8+ standard library only):
   one-click genre/tag generation (OpenAI / Anthropic / xAI, bring your own
   key), optionally grounded in the actual book by sending its EPUB/TXT text
   to the model
+- Optional Boox WebDAV receiver: NeoReader can upload `.html`/`.txt`
+  annotation exports to `/dav/`, then Lumen shows them in a Boox inbox for
+  review before importing to `#highlights`
 - Eight selectable themes: four dark (Lamplight, Midnight, Forest, Plum) and
   four light (Paper, Linen, Sakura, Dune), picked from the header and saved
   per browser
@@ -58,7 +61,8 @@ Two files, zero dependencies (Python 3.8+ standard library only):
 3. Open `http://<host>:8090`.
 
 Options: `--port`, `--bind`, `--env-file`, `--user`/`--password` (digest and
-basic auth supported). Secrets (AI keys, the Google Books key, calibre
+basic auth supported), and `--boox-dav [folder]` for the optional Boox
+WebDAV inbox. Secrets (AI keys, the Google Books key, calibre
 credentials) belong in a `.env` file (copy `.env.example`), not on the
 command line, where they would be visible in `ps` output and shell history.
 
@@ -145,6 +149,44 @@ text, like tags"** with lookup name `genre`, then reload Lumen. The sidebar
 section, book-panel chips, edit field, and analytics chart all appear
 automatically once the column exists; until then Lumen behaves as before.
 A different lookup name goes in the `GENRE_COL` constant.
+
+Highlight import is optional too. To enable it, create a custom column with
+lookup name `highlights` (`#highlights` in Calibre searches), type **"Long
+text, like comments"**, and format **Markdown**. Once Lumen sees that column
+in book metadata it shows an **Import highlights** button in the header.
+
+The v1 importer is built for Boox NeoReader `.txt` and WebDAV `.html` exports.
+For manual import, open the book's Contents / Annotations view in NeoReader,
+select all annotations, export/share as text, then choose that file in Lumen.
+Lumen parses recognizable title, author, chapter, page, date, highlight, and
+note fields, preserves uncertain blocks instead of dropping them, asks you to
+confirm the matching Calibre book, and replaces the entire `#highlights` value
+with generated Markdown. It does not merge or deduplicate existing highlights.
+
+To let a Boox device sync directly to Lumen, start the server with:
+
+    python3 server.py --calibre http://127.0.0.1:8081 --boox-dav
+
+That enables WebDAV at `http://<host>:8090/dav/` and stores uploads in a `dav`
+folder next to `server.py`. You can choose a different folder:
+
+    python3 server.py --calibre http://127.0.0.1:8081 --boox-dav /srv/calibre/lumen/dav
+
+If your Boox setup asks for a username and password, enable Basic auth for the
+DAV receiver:
+
+    python3 server.py \
+      --calibre http://127.0.0.1:8081 \
+      --boox-dav /srv/calibre/lumen/dav \
+      --boox-dav-user boox \
+      --boox-dav-password 'test123'
+
+These credentials protect only Lumen's Boox DAV endpoints (`/dav/` and
+`/dav-inbox`). They are separate from Calibre content-server credentials.
+
+Uploads only save files to the inbox; they never write to Calibre. In Lumen,
+use **Boox inbox** to choose a received file, review the detected book match,
+and import it through the same confirmation flow as a manual file.
 
 ## Themes
 
