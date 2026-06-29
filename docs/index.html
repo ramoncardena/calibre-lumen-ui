@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lumen — a modern web UI for your Calibre library</title>
-<meta name="description" content="Lumen is a modern, dark, self-hosted web UI for the Calibre Content Server. Browse, search, filter, edit metadata, track reading status, and ask AI about your books. Two files, zero dependencies.">
+<meta name="description" content="Lumen is a modern, self-hosted web UI for the Calibre Content Server. Browse, edit metadata, track reading status, import Boox highlights, and ask AI about your books. Two files, zero dependencies.">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314161d'/%3E%3Ctext x='29' y='47' font-family='Georgia,serif' font-size='44' font-weight='600' fill='%23eae5d9' text-anchor='middle'%3EL%3C/text%3E%3Ccircle cx='49' cy='43' r='5.5' fill='%23e8a849'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -381,7 +381,7 @@
     <div class="files">
       <div class="file">
         <div class="name">server.py</div>
-        <div class="what">Serves the UI and proxies the Calibre API — reads, writes, covers, downloads, metadata search, AI.</div>
+        <div class="what">Serves the UI and proxies the Calibre API — reads, writes, covers, downloads, metadata search, AI, and optional Boox WebDAV.</div>
       </div>
       <div class="file">
         <div class="name">index.html</div>
@@ -400,6 +400,7 @@
       <div class="card"><span class="glyph">⇣</span><h3>Fetch metadata</h3><p>Pull title, description, identifiers, and covers from Google Books and Open Library. Inspect every candidate before applying it.</p></div>
       <div class="card"><span class="glyph">⇩</span><h3>Download anywhere</h3><p>Every format of every book, one click away, from any device on your network — phone, tablet, or the browser on your e-reader.</p></div>
       <div class="card"><span class="glyph">◷</span><h3>Stays in sync</h3><p>Lumen writes through the Calibre Content Server API. The desktop app, OPDS feeds, and your reader always see the same library.</p></div>
+      <div class="card"><span class="glyph">≡</span><h3>Import Boox highlights</h3><p>Choose a NeoReader export or receive it through the optional WebDAV inbox. Lumen finds the book, asks you to confirm, and saves readable highlights back to Calibre.</p></div>
       <div class="card"><span class="glyph">◔</span><h3>Library analytics</h3><p>Reading status, formats, acquisition timeline, publication decades, top tags and authors, ratings — and every chart is clickable, filtering the shelf to what you tapped.</p></div>
       <div class="card"><span class="glyph">◑</span><h3>Make it yours</h3><p>Eight themes — four dark, four light — picked from the header and remembered per device, plus a slider for exactly how big you like your covers.</p></div>
     </div>

@@ -15,6 +15,12 @@ metadata from internet sources (Google Books and Open Library):
   GET /meta/search?title=&author=&isbn=   normalized candidate list
   GET /meta/cover?url=                    cover image proxy (allowlisted hosts)
 
+Optionally, with --boox-dav, it exposes a tiny WebDAV receiver for Boox
+NeoReader sync:
+
+  /dav/                                   save/read uploaded annotation files
+  GET /dav-inbox                          list received .txt/.html files
+
 Usage:
     python3 server.py --calibre http://127.0.0.1:8081
     python3 server.py --calibre http://127.0.0.1:8081 --port 8090
@@ -22,9 +28,14 @@ Usage:
 """
 
 import argparse
+import base64
+import email.utils
+import hmac
 import io
 import json
+import mimetypes
 import os
+import posixpath
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
@@ -41,6 +52,9 @@ INDEX = HERE / "index.html"
 
 CALIBRE_URL = ""
 OPENER = urllib.request.build_opener()
+DAV_ROOT = None
+DAV_USER = ""
+DAV_PASSWORD = ""
 
 PROXY_PREFIXES = ("/ajax/", "/get/")  # GET; /cdb/ is POST-only
 
@@ -452,6 +466,127 @@ def ai_handle(body):
 
 
 # --------------------------------------------------------------------------
+# Minimal WebDAV receiver for Boox NeoReader sync (optional)
+# --------------------------------------------------------------------------
+
+DAV_METHODS = "OPTIONS, PROPFIND, GET, HEAD, PUT, MKCOL, DELETE"
+DAV_TEXT_SUFFIXES = {".txt", ".html", ".htm"}
+
+
+def dav_enabled():
+    return DAV_ROOT is not None
+
+
+def dav_auth_required():
+    return dav_enabled() and bool(DAV_USER and DAV_PASSWORD)
+
+
+def xml_escape(s):
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def http_date(ts):
+    return email.utils.formatdate(ts, usegmt=True)
+
+
+def dav_content_type(path):
+    return mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+
+
+def dav_local_path(request_path):
+    if not dav_enabled():
+        raise FileNotFoundError("Boox WebDAV is disabled")
+    path = urllib.parse.urlsplit(request_path).path
+    if path == "/dav":
+        path = "/dav/"
+    if not path.startswith("/dav/"):
+        raise ValueError("Not a DAV path")
+    rel_url = path[len("/dav/"):]
+    rel = urllib.parse.unquote(rel_url)
+    if "\x00" in rel:
+        raise ValueError("Invalid DAV path")
+    norm = posixpath.normpath("/" + rel).lstrip("/")
+    parts = [] if norm in ("", ".") else norm.split("/")
+    if any(p in ("", ".", "..") for p in parts):
+        raise ValueError("Invalid DAV path")
+    root = DAV_ROOT.resolve()
+    local = (root.joinpath(*parts)).resolve()
+    if local != root and root not in local.parents:
+        raise ValueError("Invalid DAV path")
+    return local
+
+
+def dav_href(path):
+    root = DAV_ROOT.resolve()
+    rel = path.resolve().relative_to(root)
+    if not rel.parts:
+        return "/dav/"
+    href = "/dav/" + "/".join(urllib.parse.quote(p) for p in rel.parts)
+    if path.is_dir() and not href.endswith("/"):
+        href += "/"
+    return href
+
+
+def dav_prop_response(path):
+    st = path.stat()
+    is_dir = path.is_dir()
+    href = xml_escape(dav_href(path))
+    ctype = "httpd/unix-directory" if is_dir else dav_content_type(path)
+    length = 0 if is_dir else st.st_size
+    resourcetype = "<d:collection/>" if is_dir else ""
+    etag = f'"{int(st.st_mtime)}-{st.st_size}"'
+    return f"""  <d:response>
+    <d:href>{href}</d:href>
+    <d:propstat>
+      <d:prop>
+        <d:resourcetype>{resourcetype}</d:resourcetype>
+        <d:getcontentlength>{length}</d:getcontentlength>
+        <d:getlastmodified>{xml_escape(http_date(st.st_mtime))}</d:getlastmodified>
+        <d:getcontenttype>{xml_escape(ctype)}</d:getcontenttype>
+        <d:getetag>{xml_escape(etag)}</d:getetag>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>"""
+
+
+def dav_multistatus(paths):
+    body = ['<?xml version="1.0" encoding="utf-8"?>',
+            '<d:multistatus xmlns:d="DAV:">']
+    body.extend(dav_prop_response(p) for p in paths)
+    body.append("</d:multistatus>")
+    return ("\n".join(body) + "\n").encode("utf-8")
+
+
+def dav_inbox_items():
+    if not dav_enabled():
+        raise FileNotFoundError("Boox WebDAV is disabled")
+    root = DAV_ROOT.resolve()
+    if not root.exists():
+        return []
+    items = []
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in DAV_TEXT_SUFFIXES:
+            continue
+        try:
+            st = path.stat()
+            rel = path.relative_to(root)
+        except OSError:
+            continue
+        items.append({
+            "name": path.name,
+            "path": rel.as_posix(),
+            "size": st.st_size,
+            "modified": http_date(st.st_mtime),
+            "mtime": st.st_mtime,
+            "url": dav_href(path),
+        })
+    items.sort(key=lambda x: x["mtime"], reverse=True)
+    return items
+
+
+# --------------------------------------------------------------------------
 # HTTP handler
 # --------------------------------------------------------------------------
 
@@ -471,10 +606,221 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_empty(self, code=204, extra=None):
+        self.send_response(code)
+        self.send_header("Content-Length", "0")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+
+    def is_dav_path(self):
+        path = urllib.parse.urlsplit(self.path).path
+        return path == "/dav" or path.startswith("/dav/")
+
+    def dav_not_enabled(self):
+        self.send_error(404, "Boox WebDAV is not enabled")
+
+    def dav_unauthorized(self):
+        self.close_connection = True
+        self.send_empty(401, {
+            "WWW-Authenticate": 'Basic realm="Lumen Boox DAV"',
+            "Connection": "close",
+        })
+
+    def drain_request_body(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        remaining = length
+        while remaining > 0:
+            chunk = self.rfile.read(min(1024 * 1024, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+
+    def check_dav_auth(self):
+        if not dav_auth_required():
+            return True
+        header = self.headers.get("Authorization") or ""
+        scheme, _, token = header.partition(" ")
+        if scheme.lower() != "basic" or not token:
+            return False
+        try:
+            raw = base64.b64decode(token.strip(), validate=True).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            return False
+        user, sep, password = raw.partition(":")
+        if not sep:
+            return False
+        return (hmac.compare_digest(user, DAV_USER) and
+                hmac.compare_digest(password, DAV_PASSWORD))
+
+    def require_dav_auth(self):
+        if self.check_dav_auth():
+            return True
+        self.dav_unauthorized()
+        return False
+
+    def dav_options(self):
+        if not dav_enabled():
+            self.dav_not_enabled()
+            return
+        self.drain_request_body()
+        self.send_empty(204, {"DAV": "1", "Allow": DAV_METHODS})
+
+    def dav_propfind(self):
+        if not dav_enabled():
+            self.dav_not_enabled()
+            return
+        self.drain_request_body()
+        try:
+            path = dav_local_path(self.path)
+        except ValueError:
+            self.send_error(403, "Invalid DAV path")
+            return
+        if not path.exists():
+            self.send_error(404, "Not found")
+            return
+        depth = (self.headers.get("Depth") or "infinity").lower()
+        paths = [path]
+        if path.is_dir() and depth != "0":
+            try:
+                paths.extend(sorted(path.iterdir(), key=lambda p: p.name.lower()))
+            except OSError as e:
+                self.send_error(500, str(e))
+                return
+        self.send_body(dav_multistatus(paths), "application/xml; charset=utf-8", 207,
+                       extra={"DAV": "1"})
+
+    def dav_get_head(self, include_body=True):
+        if not dav_enabled():
+            self.dav_not_enabled()
+            return
+        try:
+            path = dav_local_path(self.path)
+        except ValueError:
+            self.send_error(403, "Invalid DAV path")
+            return
+        if not path.exists():
+            self.send_error(404, "Not found")
+            return
+        if path.is_dir():
+            listing = "\n".join(p.name + ("/" if p.is_dir() else "")
+                                for p in sorted(path.iterdir(), key=lambda p: p.name.lower()))
+            data = (listing + ("\n" if listing else "")).encode("utf-8")
+            ctype = "text/plain; charset=utf-8"
+            cache = False
+        else:
+            try:
+                data = path.read_bytes()
+            except OSError as e:
+                self.send_error(500, str(e))
+                return
+            ctype = dav_content_type(path)
+            cache = False
+        if include_body:
+            self.send_body(data, ctype, cache=cache)
+        else:
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+
+    def dav_put(self):
+        if not dav_enabled():
+            self.dav_not_enabled()
+            return
+        try:
+            path = dav_local_path(self.path)
+        except ValueError:
+            self.send_error(403, "Invalid DAV path")
+            return
+        if path == DAV_ROOT.resolve():
+            self.send_error(405, "Cannot PUT to the DAV root")
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        existed = path.exists()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("wb") as f:
+                remaining = length
+                while remaining > 0:
+                    chunk = self.rfile.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    remaining -= len(chunk)
+        except OSError as e:
+            self.send_error(500, str(e))
+            return
+        self.send_empty(204 if existed else 201, {"DAV": "1"})
+
+    def dav_mkcol(self):
+        if not dav_enabled():
+            self.dav_not_enabled()
+            return
+        try:
+            path = dav_local_path(self.path)
+        except ValueError:
+            self.send_error(403, "Invalid DAV path")
+            return
+        if path.exists():
+            self.send_error(405, "Collection already exists")
+            return
+        if not path.parent.exists():
+            self.send_error(409, "Parent collection does not exist")
+            return
+        try:
+            path.mkdir()
+        except OSError as e:
+            self.send_error(500, str(e))
+            return
+        self.send_empty(201, {"DAV": "1"})
+
+    def dav_delete(self):
+        if not dav_enabled():
+            self.dav_not_enabled()
+            return
+        try:
+            path = dav_local_path(self.path)
+        except ValueError:
+            self.send_error(403, "Invalid DAV path")
+            return
+        if path == DAV_ROOT.resolve():
+            self.send_error(405, "Cannot delete the DAV root")
+            return
+        if not path.exists():
+            self.send_error(404, "Not found")
+            return
+        try:
+            if path.is_dir():
+                path.rmdir()
+            else:
+                path.unlink()
+        except OSError as e:
+            self.send_error(409, str(e))
+            return
+        self.send_empty(204, {"DAV": "1"})
+
     # -------------------- GET --------------------
 
     def do_GET(self):
-        if self.path == "/" or self.path == "/index.html":
+        if self.is_dav_path():
+            if not self.require_dav_auth():
+                return
+            self.dav_get_head(True)
+        elif self.path == "/dav-inbox":
+            if not dav_enabled():
+                self.dav_not_enabled()
+                return
+            if not self.require_dav_auth():
+                return
+            ans = {"enabled": True, "root": str(DAV_ROOT), "files": dav_inbox_items()}
+            self.send_body(json.dumps(ans).encode(), "application/json")
+        elif self.path == "/dav-status":
+            ans = {"enabled": dav_enabled(), "auth": dav_auth_required(),
+                   "count": len(dav_inbox_items()) if dav_enabled() else 0}
+            self.send_body(json.dumps(ans).encode(), "application/json")
+        elif self.path == "/" or self.path == "/index.html":
             self.serve_index()
         elif self.path.startswith(PROXY_PREFIXES):
             self.proxy("GET")
@@ -485,6 +831,65 @@ class Handler(BaseHTTPRequestHandler):
                    "provider": AI_PROVIDER or None,
                    "model": AI_MODEL or (AI_DEFAULT_MODELS.get(AI_PROVIDER) if AI_PROVIDER else None)}
             self.send_body(json.dumps(ans).encode(), "application/json")
+        else:
+            self.send_error(404, "Not found")
+
+    def do_HEAD(self):
+        if self.is_dav_path():
+            if not self.require_dav_auth():
+                return
+            self.dav_get_head(False)
+        elif self.path == "/" or self.path == "/index.html":
+            try:
+                body = INDEX.read_bytes()
+            except OSError:
+                self.send_error(500, "index.html not found next to server.py")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+        else:
+            self.send_error(404, "Not found")
+
+    def do_OPTIONS(self):
+        if self.is_dav_path():
+            if not self.require_dav_auth():
+                return
+            self.dav_options()
+        else:
+            self.send_empty(204, {"Allow": "GET, HEAD, POST, OPTIONS"})
+
+    def do_PROPFIND(self):
+        if self.is_dav_path():
+            if not self.require_dav_auth():
+                return
+            self.dav_propfind()
+        else:
+            self.send_error(404, "Not found")
+
+    def do_PUT(self):
+        if self.is_dav_path():
+            if not self.require_dav_auth():
+                return
+            self.dav_put()
+        else:
+            self.send_error(404, "Not found")
+
+    def do_MKCOL(self):
+        if self.is_dav_path():
+            if not self.require_dav_auth():
+                return
+            self.dav_mkcol()
+        else:
+            self.send_error(404, "Not found")
+
+    def do_DELETE(self):
+        if self.is_dav_path():
+            if not self.require_dav_auth():
+                return
+            self.dav_delete()
         else:
             self.send_error(404, "Not found")
 
@@ -590,7 +995,7 @@ def cfg(cli_value, env_name, default=""):
 
 
 def main():
-    global CALIBRE_URL, OPENER, GOOGLE_KEY, AI_PROVIDER, AI_KEY, AI_MODEL
+    global CALIBRE_URL, OPENER, GOOGLE_KEY, AI_PROVIDER, AI_KEY, AI_MODEL, DAV_ROOT, DAV_USER, DAV_PASSWORD
     p = argparse.ArgumentParser(description="Lumen — modern UI for the Calibre Content Server")
     p.add_argument("--calibre", required=True,
                    help="Base URL of the Calibre Content Server, e.g. http://127.0.0.1:8081")
@@ -607,6 +1012,13 @@ def main():
                         "CLI args are visible in `ps` output)")
     p.add_argument("--ai-model", default="",
                    help="Override the default model for the chosen provider")
+    p.add_argument("--boox-dav", nargs="?", const="dav", default=None,
+                   help="Enable the Boox WebDAV receiver at /dav/; optional value sets "
+                        "the inbox folder (default: dav next to server.py)")
+    p.add_argument("--boox-dav-user", default="",
+                   help="Optional username for Boox WebDAV Basic auth")
+    p.add_argument("--boox-dav-password", default="",
+                   help="Optional password for Boox WebDAV Basic auth")
     p.add_argument("--env-file", default=str(HERE / ".env"),
                    help="Path to a .env file with secrets (default: .env next to server.py)")
     args = p.parse_args()
@@ -617,6 +1029,12 @@ def main():
     AI_PROVIDER = cfg(args.ai_provider, "LUMEN_AI_PROVIDER").lower()
     AI_KEY = cfg(args.ai_key, "LUMEN_AI_KEY")
     AI_MODEL = cfg(args.ai_model, "LUMEN_AI_MODEL")
+    if args.boox_dav is not None:
+        dav = Path(args.boox_dav)
+        DAV_ROOT = (dav if dav.is_absolute() else HERE / dav).resolve()
+        DAV_ROOT.mkdir(parents=True, exist_ok=True)
+        DAV_USER = args.boox_dav_user or ""
+        DAV_PASSWORD = args.boox_dav_password or ""
     user = cfg(args.user or "", "LUMEN_CALIBRE_USER")
     password = cfg(args.password or "", "LUMEN_CALIBRE_PASSWORD")
     if user and password:
@@ -631,6 +1049,8 @@ def main():
 
     srv = ThreadingHTTPServer((args.bind, args.port), Handler)
     print(f"Lumen running on http://{args.bind}:{args.port} -> proxying {CALIBRE_URL}")
+    if DAV_ROOT:
+        print(f"Boox WebDAV enabled at /dav/ -> {DAV_ROOT}")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
