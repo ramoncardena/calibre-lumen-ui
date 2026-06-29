@@ -138,20 +138,20 @@ book's extracted text are sent to the chosen AI provider. Nothing
 else from the library leaves the server, and nothing is sent until an action
 is clicked.
 
-## Custom columns: reading status and genre
+## Custom columns: reading status, genre and highlights
 
-Status tracking expects two yes/no custom columns in Calibre, lookup names
+**Status tracking** expects two yes/no custom columns in Calibre, lookup names
 `#read` and `#started` (*Preferences → Add your own columns*). Different
 names? Change the `READ_COL` / `STARTED_COL` constants at the top of the
 script in `index.html`.
 
-Genre support is optional. Create a custom column of type **"Comma separated
+**Genre support** is optional. Create a custom column of type **"Comma separated
 text, like tags"** with lookup name `genre`, then reload Lumen. The sidebar
 section, book-panel chips, edit field, and analytics chart all appear
 automatically once the column exists; until then Lumen behaves as before.
 A different lookup name goes in the `GENRE_COL` constant.
 
-Highlight import is optional too. To enable it, create a custom column with
+**Highlight import** is optional too. To enable it, create a custom column with
 lookup name `highlights` (`#highlights` in Calibre searches), type **"Long
 text, like comments"**, and format **Markdown**. Once Lumen sees that column
 in book metadata it shows an **Import highlights** button in the header.
