@@ -72,7 +72,7 @@ _META_CACHE_TTL = 6 * 3600
 _META_CACHE_MAX = 200
 
 
-def http_get_json(url, timeout=12, retries=1):
+def http_get_json(url, timeout=12, retries=1, extra_headers=None):
     """GET JSON with a small cache and one retry on 429/5xx (Google Books
     rate-limits unauthenticated clients aggressively)."""
     now = time.monotonic()
@@ -82,7 +82,10 @@ def http_get_json(url, timeout=12, retries=1):
     last = None
     for attempt in range(retries + 1):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "lumen/1.0"})
+            headers = {"User-Agent": "lumen/1.0"}
+            if extra_headers:
+                headers.update(extra_headers)
+            req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read().decode("utf-8", "replace"))
             if len(_META_CACHE) >= _META_CACHE_MAX:
@@ -116,10 +119,9 @@ def search_google_books(title, author, isbn):
         return []
     url = ("https://www.googleapis.com/books/v1/volumes?maxResults=10&q=" +
            urllib.parse.quote(q))
-    if GOOGLE_KEY:
-        url += "&key=" + urllib.parse.quote(GOOGLE_KEY)
+    extra = {"X-Goog-Api-Key": GOOGLE_KEY} if GOOGLE_KEY else None
     try:
-        data = http_get_json(url)
+        data = http_get_json(url, extra_headers=extra)
     except urllib.error.HTTPError as e:
         if e.code == 429:
             raise RuntimeError(
@@ -601,6 +603,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "public, max-age=86400" if cache else "no-cache")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -905,6 +909,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length") or 0)
+        if length > 10 * 1024 * 1024:
+            self.send_error(413, "Request too large")
+            return
         body = self.rfile.read(length) if length else b""
         # Write operations (edit metadata) go through /cdb/.
         if self.path.startswith("/cdb/"):
@@ -932,7 +939,7 @@ class Handler(BaseHTTPRequestHandler):
                 extra = {}
                 cd = upstream.headers.get("Content-Disposition")
                 if cd:
-                    extra["Content-Disposition"] = cd
+                    extra["Content-Disposition"] = cd.replace("\r", "").replace("\n", "")
                 self.send_body(data, ctype, upstream.status,
                                cache=self.path.startswith("/get/"), extra=extra)
         except urllib.error.HTTPError as e:

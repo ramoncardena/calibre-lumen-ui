@@ -1356,7 +1356,10 @@
       tpl.innerHTML = m.comments;
       tpl.content.querySelectorAll("script,iframe,object,style,link").forEach(n => n.remove());
       tpl.content.querySelectorAll("*").forEach(n =>
-        [...n.attributes].forEach(a => { if (/^on/i.test(a.name)) n.removeAttribute(a.name); }));
+        [...n.attributes].forEach(a => {
+          if (/^on/i.test(a.name) || /^(javascript|vbscript|data):/i.test(a.value.trim()))
+            n.removeAttribute(a.name);
+        }));
       com.appendChild(tpl.content);
     }
 
